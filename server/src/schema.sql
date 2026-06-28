@@ -117,9 +117,14 @@ CREATE TABLE IF NOT EXISTS rfqs (
   sent_at        TIMESTAMPTZ,
   viewed_at      TIMESTAMPTZ,
   responded_at   TIMESTAMPTZ,
+  reminder_count INTEGER NOT NULL DEFAULT 0,
+  last_reminded_at TIMESTAMPTZ,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(requirement_id, vendor_id)
 );
+-- Add reminder columns to pre-existing rfqs tables (idempotent).
+ALTER TABLE rfqs ADD COLUMN IF NOT EXISTS reminder_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE rfqs ADD COLUMN IF NOT EXISTS last_reminded_at TIMESTAMPTZ;
 
 -- ---- Quotes: a vendor's submission for an RFQ ----------------------------
 -- entered_via: 'portal' | 'manual'

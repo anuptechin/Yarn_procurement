@@ -38,7 +38,13 @@ export const config = {
     ssl: process.env.PGSSL === 'true',
   },
   mail: {
-    mode: process.env.MAIL_MODE || 'draft', // 'draft' | 'smtp'
+    // Single ON/OFF switch. MAIL_ENABLED=true → actually send via SMTP;
+    // false (default) → draft mode (generate text/mailto, send nothing).
+    // Falls back to the legacy MAIL_MODE=smtp for older .env files.
+    enabled: process.env.MAIL_ENABLED != null
+      ? process.env.MAIL_ENABLED === 'true'
+      : process.env.MAIL_MODE === 'smtp',
+    get mode() { return this.enabled ? 'smtp' : 'draft'; },
     from: process.env.MAIL_FROM || 'Yarn Procurement <procurement@ddecor.com>',
     smtp: {
       host: process.env.SMTP_HOST || '',

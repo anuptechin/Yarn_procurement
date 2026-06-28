@@ -21,6 +21,33 @@ async function getRfqFull(rfqId) {
     WHERE rfq.id = ?`, [rfqId]);
 }
 
+// Build a gentle reminder email for a still-pending RFQ.
+function reminderEmail(rfq, items, fromName) {
+  const link = portalLink(rfq.token);
+  const lines = items
+    .map((it, i) => `  ${i + 1}. [${it.mat_code || '-'}] ${it.description} — ${Number(it.required_qty_kg).toLocaleString('en-IN')} Kg`)
+    .join('\n');
+  const subject = `Reminder · RFQ ${rfq.ref_no} — ${rfq.title} | D'Decor Yarn Procurement`;
+  const dueLine = rfq.due_date ? `\nWe had requested your quote by ${new Date(rfq.due_date).toLocaleDateString('en-IN')}.` : '';
+  const text =
+`Dear ${rfq.vendor_contact || rfq.vendor_name},
+
+A gentle reminder to share your best rates for the following yarn requirement:
+
+${lines}
+${dueLine}
+
+You can submit your quote quickly online:
+${link}
+
+If you have already responded, kindly ignore this message.
+
+Regards,
+${fromName}
+D'Decor Yarn Procurement`;
+  return { subject, text, link };
+}
+
 // ---- dispatch RFQ to a set of vendors (procurement) ----------------------
 const dispatchSchema = z.object({
   vendor_ids: z.array(z.coerce.number().int()).min(1),
@@ -95,6 +122,66 @@ D'Decor Yarn Procurement`;
       rfq_id: rfq.id, vendor_name: rfq.vendor_name, to: rfq.vendor_email,
       subject, text, link, mail: result, pdf_url: `/api/rfqs/${rfq.id}/pdf`,
     });
+  } catch (e) { next(e); }
+});
+
+// ---- send a reminder nudge to one pending vendor -------------------------
+router.post('/:rfqId/remind', requireAuth, requireRole(ROLES.PROCUREMENT), async (req, res, next) => {
+  try {
+    const rfq = await getRfqFull(req.params.rfqId);
+    if (!rfq) return res.status(404).json({ error: 'RFQ not found' });
+    const quote = await db.get('SELECT id FROM quotes WHERE rfq_id = ?', [rfq.id]);
+    if (quote || rfq.status === 'responded') return res.status(409).json({ error: 'This vendor has already responded.' });
+    if (rfq.status === 'declined') return res.status(409).json({ error: 'This RFQ was declined.' });
+    if (!rfq.vendor_email) return res.status(400).json({ error: 'No email on file for this vendor — use Copy link to share manually.' });
+
+    const items = await db.all('SELECT * FROM requirement_items WHERE requirement_id=? ORDER BY line_no', [rfq.requirement_id]);
+    const { subject, text, link } = reminderEmail(rfq, items, req.user.name);
+    const mail = await sendMail({ to: rfq.vendor_email, subject, text });
+    const sent = mail.mode === 'smtp';
+    if (sent) {
+      await db.run('UPDATE rfqs SET reminder_count = reminder_count + 1, last_reminded_at = now() WHERE id = ?', [rfq.id]);
+      await audit(req.user.id, 'remind', 'rfq', rfq.id, { vendor: rfq.vendor_name });
+    }
+    res.json({
+      sent, mail, link,
+      message: sent ? `Reminder sent to ${rfq.vendor_name}.`
+                    : 'Email is OFF — draft generated. Set MAIL_ENABLED=true to auto-send.',
+    });
+  } catch (e) { next(e); }
+});
+
+// ---- nudge every still-pending vendor on a requirement -------------------
+router.post('/requirement/:reqId/remind-pending', requireAuth, requireRole(ROLES.PROCUREMENT), async (req, res, next) => {
+  try {
+    const r = await db.get('SELECT id FROM requirements WHERE id = ?', [req.params.reqId]);
+    if (!r) return res.status(404).json({ error: 'Requirement not found' });
+
+    const pending = await db.all(`
+      SELECT rfq.*, r.ref_no, r.title,
+             v.name AS vendor_name, v.contact_person AS vendor_contact, v.email AS vendor_email
+      FROM rfqs rfq
+      JOIN requirements r ON r.id = rfq.requirement_id
+      JOIN vendors v ON v.id = rfq.vendor_id
+      WHERE rfq.requirement_id = ? AND rfq.status NOT IN ('responded','declined')
+        AND NOT EXISTS (SELECT 1 FROM quotes q WHERE q.rfq_id = rfq.id)`, [r.id]);
+    const items = await db.all('SELECT * FROM requirement_items WHERE requirement_id=? ORDER BY line_no', [r.id]);
+
+    let sent = 0;
+    const skipped = [];
+    for (const rfq of pending) {
+      if (!rfq.vendor_email) { skipped.push({ vendor: rfq.vendor_name, reason: 'no email' }); continue; }
+      const { subject, text } = reminderEmail(rfq, items, req.user.name);
+      const mail = await sendMail({ to: rfq.vendor_email, subject, text });
+      if (mail.mode === 'smtp') {
+        sent++;
+        await db.run('UPDATE rfqs SET reminder_count = reminder_count + 1, last_reminded_at = now() WHERE id = ?', [rfq.id]);
+      } else {
+        skipped.push({ vendor: rfq.vendor_name, reason: 'mail off' });
+      }
+    }
+    if (sent) await audit(req.user.id, 'remind_pending', 'requirement', r.id, { sent });
+    res.json({ pending: pending.length, sent, skipped, mail_enabled: config.mail.enabled });
   } catch (e) { next(e); }
 });
 

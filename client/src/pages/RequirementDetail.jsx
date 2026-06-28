@@ -38,6 +38,29 @@ export default function RequirementDetail() {
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
   }
 
+  const isPending = (q) => !Number(q.has_quote) && !['responded', 'declined'].includes(q.status);
+  const pendingCount = rfqs.filter(isPending).length;
+
+  async function remindOne(q) {
+    setBusy(true);
+    try {
+      const r = await api.post(`/rfqs/${q.id}/remind`);
+      r.data.sent ? toast.success(r.data.message) : toast.warn(r.data.message);
+      load();
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  }
+
+  async function remindAll() {
+    setBusy(true);
+    try {
+      const r = await api.post(`/rfqs/requirement/${id}/remind-pending`);
+      if (r.data.sent > 0) toast.success(`Reminder sent to ${r.data.sent} vendor(s).`);
+      else if (!r.data.mail_enabled) toast.warn('Email is OFF — set MAIL_ENABLED=true to auto-send reminders.');
+      else toast.info('No pending vendors to remind (or none have an email on file).');
+      load();
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  }
+
   return (
     <>
       <PageHeader
@@ -105,7 +128,14 @@ export default function RequirementDetail() {
       <div className="card overflow-hidden">
         <div className="px-5 py-3.5 border-b border-line flex items-center justify-between">
           <h2 className="font-display font-semibold text-ink">Vendors & quotes</h2>
-          {canSendRfq && <button className="btn-ghost" onClick={() => setModal({ type: 'dispatch' })}>+ Invite vendors</button>}
+          <div className="flex items-center gap-2">
+            {isProc && pendingCount > 0 && (
+              <button className="btn-outline !py-1.5 text-xs" disabled={busy} onClick={remindAll}>
+                Nudge pending ({pendingCount})
+              </button>
+            )}
+            {canSendRfq && <button className="btn-ghost" onClick={() => setModal({ type: 'dispatch' })}>+ Invite vendors</button>}
+          </div>
         </div>
         {rfqs.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-slate-500">
@@ -118,7 +148,10 @@ export default function RequirementDetail() {
               <div key={q.id} className="px-5 py-3 flex flex-wrap items-center gap-3">
                 <div className="flex-1 min-w-[180px]">
                   <Link to={`/vendors/${q.vendor_id}`} className="font-medium text-ink hover:text-indigo-700">{q.vendor_name}</Link>
-                  <div className="text-xs text-slate-400">RFQ #{q.id}{q.responded_at ? ` · responded ${date(q.responded_at)}` : ''}</div>
+                  <div className="text-xs text-slate-400">
+                    RFQ #{q.id}{q.responded_at ? ` · responded ${date(q.responded_at)}` : ''}
+                    {Number(q.reminder_count) > 0 && ` · reminded ${q.reminder_count}× (${date(q.last_reminded_at)})`}
+                  </div>
                 </div>
                 <Badge tone={Number(q.has_quote) ? 'sage' : RFQ_TONE[q.status]}>
                   {Number(q.has_quote) ? 'Quote received' : (q.status[0].toUpperCase() + q.status.slice(1))}
@@ -126,6 +159,7 @@ export default function RequirementDetail() {
                 {isProc && (
                   <div className="flex flex-wrap gap-1.5">
                     <button className="btn-outline !py-1.5 !px-3 text-xs" onClick={() => setModal({ type: 'email', rfq: q })}>Email draft</button>
+                    {isPending(q) && <button className="btn-outline !py-1.5 !px-3 text-xs" disabled={busy} onClick={() => remindOne(q)}>Remind</button>}
                     <button className="btn-outline !py-1.5 !px-3 text-xs" onClick={() => copyLink(q, toast)}>Copy link</button>
                     <a className="btn-outline !py-1.5 !px-3 text-xs" href={`/api/rfqs/${q.id}/pdf`} target="_blank" rel="noreferrer">PDF</a>
                     <button className="btn-primary !py-1.5 !px-3 text-xs" onClick={() => setModal({ type: 'quote', rfq: q })}>{Number(q.has_quote) ? 'Edit quote' : 'Enter quote'}</button>

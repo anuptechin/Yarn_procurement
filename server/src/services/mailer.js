@@ -12,7 +12,7 @@ fs.mkdirSync(config.paths.generated, { recursive: true });
  * - smtp mode: actually sends via configured SMTP (Office 365 etc.).
  */
 export async function sendMail({ to, subject, text, html, attachments = [] }) {
-  if (config.mail.mode === 'smtp' && config.mail.smtp.host) {
+  if (config.mail.enabled && config.mail.smtp.host) {
     const transporter = nodemailer.createTransport({
       host: config.mail.smtp.host,
       port: config.mail.smtp.port,
