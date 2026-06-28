@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+.env
+server/data/*.db
+server/data/*.db-*
+server/uploads/*
+!server/uploads/.gitkeep
+~$*.xlsx
+generated/

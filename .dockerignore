@@ -1,0 +1,20 @@
+# Keep the build context small and secrets out of the image.
+**/node_modules
+client/dist
+server/generated
+server/data
+*.log
+
+# Secrets & local-only — env is injected at runtime via compose env_file
+.env
+.env.*
+!.env.example
+
+# Repo / editor / docs not needed in the image
+.git
+.claude
+docs
+db
+*.xlsx
+*.jpg
+README.md
