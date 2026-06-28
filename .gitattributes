@@ -1,0 +1,4 @@
+# Keep shell scripts LF so they run on Linux (a CR breaks the shebang).
+*.sh   text eol=lf
+# Keep Windows batch files CRLF.
+*.bat  text eol=crlf
