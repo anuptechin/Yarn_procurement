@@ -36,7 +36,7 @@ export default function Stepper({ status }) {
               <div className={`h-7 w-7 rounded-full grid place-items-center text-xs font-bold border-2 transition
                 ${done ? 'bg-sage-500 border-sage-500 text-white'
                   : active ? 'bg-marigold-500 border-marigold-500 text-white shadow-pop'
-                  : 'bg-white border-line text-slate-400'}`}>
+                  : 'bg-surface border-line text-slate-400'}`}>
                 {done ? '✓' : i + 1}
               </div>
               <div className={`mt-1.5 text-[11px] font-semibold whitespace-nowrap ${active ? 'text-marigold-700' : done ? 'text-sage-700' : 'text-slate-400'}`}>{s.label}</div>

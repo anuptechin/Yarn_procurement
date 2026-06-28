@@ -15,6 +15,8 @@ import quoteRoutes from './routes/quotes.js';
 import comparisonRoutes from './routes/comparison.js';
 import reportRoutes from './routes/reports.js';
 import portalRoutes from './routes/portal.js';
+import userRoutes from './routes/users.js';
+import auditRoutes from './routes/audit.js';
 
 const app = express();
 // Behind exactly one reverse proxy (nginx_proxy). Lets Express honour
@@ -35,6 +37,8 @@ app.use('/api/rfqs', rfqRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/comparison', comparisonRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/audit', auditRoutes);
 // Public, token-based vendor portal (no login)
 app.use('/api/portal', portalRoutes);
 

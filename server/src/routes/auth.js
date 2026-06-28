@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db.js';
-import { signToken, verifyPassword, requireAuth } from '../auth.js';
+import { signToken, verifyPassword, requireAuth, isSuperAdmin } from '../auth.js';
 
 const router = Router();
 
@@ -19,7 +19,7 @@ router.post('/login', async (req, res, next) => {
       secure: req.secure, // HTTPS-only in prod (behind the proxy); off on localhost dev
       maxAge: 12 * 3600 * 1000,
     });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, is_super: isSuperAdmin(user) } });
   } catch (e) { next(e); }
 });
 
@@ -31,7 +31,7 @@ router.post('/logout', (req, res) => {
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const u = await db.get('SELECT id, name, email, role FROM users WHERE id = ?', [req.user.id]);
-    res.json({ user: u });
+    res.json({ user: u ? { ...u, is_super: isSuperAdmin(u) } : u });
   } catch (e) { next(e); }
 });
 

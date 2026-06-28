@@ -96,3 +96,17 @@ export function requireRole(...roles) {
     return res.status(403).json({ error: 'You do not have permission for this action' });
   };
 }
+
+// The Super Admin is the single account whose email matches SUPER_ADMIN_EMAIL
+// (an admin with elevated, audit-level access). No separate role/column needed.
+export function isSuperAdmin(user) {
+  return !!user && user.role === ROLES.ADMIN && !!config.superAdmin.email &&
+    !!user.email && user.email.toLowerCase() === config.superAdmin.email;
+}
+
+// Blocks anyone who is not the Super Admin.
+export function requireSuperAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  if (!isSuperAdmin(req.user)) return res.status(403).json({ error: 'Super Admin access only' });
+  next();
+}

@@ -29,7 +29,7 @@ export default function Login() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Brand panel */}
-      <div className="relative hidden lg:flex flex-col justify-between bg-indigo-800 text-white p-12 overflow-hidden">
+      <div className="relative hidden lg:flex flex-col justify-between app-sidebar text-white p-12 overflow-hidden">
         <div className="absolute inset-0 opacity-[0.08]"
           style={{ backgroundImage: 'repeating-linear-gradient(90deg,#fff 0 1px,transparent 1px 14px)' }} />
         <div className="relative">

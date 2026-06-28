@@ -11,6 +11,7 @@
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.1.1",
     "@fontsource/inter": "^5.1.1",
+    "@fontsource/manrope": "^5.2.8",
     "@fontsource/space-grotesk": "^5.1.1",
     "axios": "^1.7.9",
     "react": "^18.3.1",

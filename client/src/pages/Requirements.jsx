@@ -36,7 +36,7 @@ export default function Requirements() {
       <div className="flex flex-wrap gap-1.5 mb-4">
         {FILTERS.map((f) => (
           <button key={f.key} onClick={() => setSp(f.key ? { status: f.key } : {})}
-            className={`pill border ${status === f.key ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-slate-600 border-line hover:border-indigo-300'}`}>
+            className={`pill border ${status === f.key ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-surface text-slate-600 border-line hover:border-indigo-300'}`}>
             {f.label}
           </button>
         ))}

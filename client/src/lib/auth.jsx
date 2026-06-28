@@ -48,4 +48,5 @@ export const can = {
   approve: (r) => ['depthead', 'admin'].includes(r),
   procure: (r) => ['procurement', 'admin'].includes(r),
   award: (r) => ['depthead', 'admin'].includes(r),
+  admin: (r) => r === 'admin',
 };

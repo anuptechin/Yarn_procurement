@@ -112,7 +112,7 @@ export default function PriceTrendPanel() {
       <div className="px-5 pt-3 flex flex-wrap gap-1.5">
         {categories.map((c) => (
           <button key={c} onClick={() => { setCat(c); setHidden(new Set()); }}
-            className={`pill border ${cat === c ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-slate-600 border-line hover:border-indigo-300'}`}>{c}</button>
+            className={`pill border ${cat === c ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-surface text-slate-600 border-line hover:border-indigo-300'}`}>{c}</button>
         ))}
       </div>
 
@@ -123,20 +123,20 @@ export default function PriceTrendPanel() {
           {/* gridlines + y labels */}
           {ticks.map((t, i) => (
             <g key={i}>
-              <line x1={padL} y1={yAt(t)} x2={W - padR} y2={yAt(t)} stroke="#EDF0F5" strokeWidth="1" />
-              <text x={padL - 8} y={yAt(t) + 3} textAnchor="end" fontSize="10" fill="#94A3B8" fontFamily="IBM Plex Mono, monospace">
+              <line x1={padL} y1={yAt(t)} x2={W - padR} y2={yAt(t)} stroke="var(--chart-grid)" strokeWidth="1" />
+              <text x={padL - 8} y={yAt(t) + 3} textAnchor="end" fontSize="10" fill="var(--chart-axis)" fontFamily="IBM Plex Mono, monospace">
                 {mode === 'indexed' ? num(t, 0) : num(t, 0)}
               </text>
             </g>
           ))}
           {/* x labels */}
           {rangeDates.map((d, i) => xLabelIdx.includes(i) && (
-            <text key={d} x={xAt(i)} y={H - 12} textAnchor="middle" fontSize="10" fill="#94A3B8">{shortDate(d)}</text>
+            <text key={d} x={xAt(i)} y={H - 12} textAnchor="middle" fontSize="10" fill="var(--chart-axis)">{shortDate(d)}</text>
           ))}
 
           {/* hover guide */}
           {hover != null && (
-            <line x1={xAt(hover)} y1={padT} x2={xAt(hover)} y2={padT + plotH} stroke="#C8932A" strokeWidth="1" strokeDasharray="3 3" />
+            <line x1={xAt(hover)} y1={padT} x2={xAt(hover)} y2={padT + plotH} stroke="var(--chart-accent)" strokeWidth="1" strokeDasharray="3 3" />
           )}
 
           {/* lines */}
@@ -145,7 +145,7 @@ export default function PriceTrendPanel() {
               <path d={linePath(m.pts, xAt, yAt)} fill="none" stroke={m.color} strokeWidth="2"
                 strokeLinejoin="round" strokeLinecap="round" opacity={hover != null ? 0.92 : 1} />
               {hover != null && m.pts.find((p) => p.i === hover) && (
-                <circle cx={xAt(hover)} cy={yAt(m.pts.find((p) => p.i === hover).value)} r="3.5" fill="#fff" stroke={m.color} strokeWidth="2" />
+                <circle cx={xAt(hover)} cy={yAt(m.pts.find((p) => p.i === hover).value)} r="3.5" fill="var(--chart-dot-fill)" stroke={m.color} strokeWidth="2" />
               )}
             </g>
           ))}
@@ -205,7 +205,7 @@ const shortDate = (d) => new Date(d).toLocaleDateString('en-IN', { month: 'short
 
 function Toggle({ options, value, onChange }) {
   return (
-    <div className="inline-flex rounded-lg border border-line bg-white p-0.5">
+    <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
       {options.map(([k, label]) => (
         <button key={k} onClick={() => onChange(k)}
           className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${value === k ? 'bg-indigo-700 text-white' : 'text-slate-500 hover:text-ink'}`}>{label}</button>

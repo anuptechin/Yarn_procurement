@@ -13,6 +13,8 @@ import Vendors from './pages/Vendors.jsx';
 import VendorDetail from './pages/VendorDetail.jsx';
 import Materials from './pages/Materials.jsx';
 import Awards from './pages/Awards.jsx';
+import Users from './pages/Users.jsx';
+import Audit from './pages/Audit.jsx';
 import VendorPortal from './pages/VendorPortal.jsx';
 
 function Protected({ children }) {
@@ -42,6 +44,8 @@ export default function App() {
         <Route path="/vendors/:id" element={<Protected><VendorDetail /></Protected>} />
         <Route path="/materials" element={<Protected><Materials /></Protected>} />
         <Route path="/awards" element={<Protected><Awards /></Protected>} />
+        <Route path="/users" element={<Protected><Users /></Protected>} />
+        <Route path="/audit" element={<Protected><Audit /></Protected>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

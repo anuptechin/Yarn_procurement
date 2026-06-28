@@ -126,10 +126,10 @@ function Sparkline({ history }) {
         <span className={`font-semibold ${change >= 0 ? 'text-clay-600' : 'text-sage-700'}`}>{change >= 0 ? '▲' : '▼'} {num(Math.abs(change), 1)}%</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2A3F6B" stopOpacity="0.18" /><stop offset="100%" stopColor="#2A3F6B" stopOpacity="0" /></linearGradient></defs>
+        <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--chart-line)" stopOpacity="0.18" /><stop offset="100%" stopColor="var(--chart-line)" stopOpacity="0" /></linearGradient></defs>
         <path d={area} fill="url(#g)" />
-        <path d={line} fill="none" stroke="#22335B" strokeWidth="2" strokeLinejoin="round" />
-        {pts.map((p, i) => <circle key={i} cx={x(i)} cy={y(Number(p.price_per_kg))} r="2.5" fill={p.source === 'po' ? '#2F7D5B' : '#C8932A'} />)}
+        <path d={line} fill="none" stroke="var(--chart-line)" strokeWidth="2" strokeLinejoin="round" />
+        {pts.map((p, i) => <circle key={i} cx={x(i)} cy={y(Number(p.price_per_kg))} r="2.5" fill={p.source === 'po' ? 'var(--chart-po)' : 'var(--chart-market)'} />)}
         <text x={pad} y={16} className="fill-slate-400" fontSize="11">{inr(max, { dp: 0 })}</text>
         <text x={pad} y={H - 8} className="fill-slate-400" fontSize="11">{inr(min, { dp: 0 })}</text>
       </svg>

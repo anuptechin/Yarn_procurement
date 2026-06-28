@@ -162,7 +162,7 @@ function ItemComparison({ row, vendors, isHead, pick, onPick, reason, onReason }
                 awarded ? 'border-sage-500 bg-sage-50 ring-2 ring-sage-500/30'
                 : selected && isHead ? 'border-marigold-500 ring-2 ring-marigold-500/40 bg-marigold-50'
                 : recommended ? 'border-marigold-300 bg-marigold-50/40'
-                : 'border-line bg-white'} ${isHead ? 'hover:border-marigold-400 cursor-pointer' : 'cursor-default'}`}>
+                : 'border-line bg-surface'} ${isHead ? 'hover:border-marigold-400 cursor-pointer' : 'cursor-default'}`}>
               {awarded ? <span className="absolute -top-2 left-3 pill bg-sage-500 text-white text-[10px]">✓ Awarded</span>
                 : recommended ? <span className="absolute -top-2 left-3 pill bg-marigold-500 text-white text-[10px]">★ Recommended</span> : null}
 
