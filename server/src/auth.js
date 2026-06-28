@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { config } from './config.js';
 import { db } from './db.js';
+import { runtime } from './util/state.js';
 
 export const ROLES = {
   REQUISITIONER: 'requisitioner',
@@ -68,15 +69,17 @@ export async function ensureSuperAdmin() {
 
   const existing = await db.get('SELECT id FROM users WHERE email = ?', [email]);
   if (!existing) {
-    await db.run(
+    const row = await db.get(
       `INSERT INTO users (name, email, role, password_hash, active)
-       VALUES (?, ?, ?, ?, 1)`,
+       VALUES (?, ?, ?, ?, 1) RETURNING id`,
       [name, email, ROLES.ADMIN, hashPassword(password)]
     );
+    runtime.superAdminId = row.id;
     console.log(`  → Super Admin created: ${email}`);
     return;
   }
 
+  runtime.superAdminId = existing.id;
   if (resetPassword) {
     await db.run(
       `UPDATE users SET role = ?, active = 1, password_hash = ? WHERE id = ?`,

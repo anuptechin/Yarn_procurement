@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db.js';
+import { db, audit } from '../db.js';
 import { signToken, verifyPassword, requireAuth, isSuperAdmin } from '../auth.js';
 
 const router = Router();
@@ -13,6 +13,8 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     const token = signToken(user);
+    // Track sign-ins (audit() skips the Super Admin centrally).
+    await audit(user.id, 'login', 'auth', user.id, { role: user.role });
     res.cookie('ypp_token', token, {
       httpOnly: true,
       sameSite: 'lax',

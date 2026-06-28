@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
+import { runtime } from './util/state.js';
 
 const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -77,6 +78,8 @@ export async function migrate() {
 }
 
 export async function audit(userId, action, entity, entityId, detail) {
+  // The Super Admin is the overseer — keep their own actions out of the log.
+  if (userId != null && userId === runtime.superAdminId) return;
   try {
     await db.run(
       `INSERT INTO audit_log (user_id, action, entity, entity_id, detail)

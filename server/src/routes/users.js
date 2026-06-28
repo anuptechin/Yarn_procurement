@@ -10,13 +10,13 @@ router.use(requireRole(ROLES.ADMIN));
 
 const roleEnum = z.enum([ROLES.REQUISITIONER, ROLES.PROCUREMENT, ROLES.DEPTHEAD, ROLES.ADMIN]);
 
-// list
+// list (the Super Admin account is hidden — never listed)
 router.get('/', async (_req, res, next) => {
   try {
     const users = await db.all(
       `SELECT id, name, email, role, active, created_at FROM users ORDER BY role, name`
     );
-    res.json({ users: users.map((u) => ({ ...u, is_super: isSuperAdmin(u) })) });
+    res.json({ users: users.filter((u) => !isSuperAdmin(u)) });
   } catch (e) { next(e); }
 });
 
