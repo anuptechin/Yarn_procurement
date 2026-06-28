@@ -7,14 +7,20 @@
  *       npm run reset        (wipe + reseed)
  */
 import { db, pool, migrate } from './db.js';
-import { hashPassword, ROLES } from './auth.js';
+import { hashPassword, ROLES, ensureSuperAdmin } from './auth.js';
 import { nextRequirementRef, newToken, isoDate } from './util/helpers.js';
 import { loadMarketTrend } from './util/loadTrend.js';
 
 const reset = process.argv.includes('--reset');
+// Demo accounts + demo requirement are dev-only. Skip them in production so a
+// stray `npm run seed` can't create weak-password logins. Force with --demo.
+const seedDemo = process.env.NODE_ENV !== 'production' || process.argv.includes('--demo');
 
 async function main() {
   await migrate();
+
+  // Always ensure the env-driven Super Admin exists (no-op if not configured).
+  await ensureSuperAdmin();
 
   if (reset) {
     console.log('Resetting all data...');
@@ -23,16 +29,20 @@ async function main() {
       price_history, vendor_certificates, materials, vendors, users RESTART IDENTITY CASCADE`);
   }
 
-  // ---- Users ------------------------------------------------------------
-  const users = [
-    { name: 'Ravi (Requisitioner)', email: 'requisitioner@ddecor.com', role: ROLES.REQUISITIONER, pw: 'pass123' },
-    { name: 'Anupam (Procurement)', email: 'procurement@ddecor.com', role: ROLES.PROCUREMENT, pw: 'pass123' },
-    { name: 'Dept Head (Yarn)', email: 'depthead@ddecor.com', role: ROLES.DEPTHEAD, pw: 'pass123' },
-    { name: 'Administrator', email: 'admin@ddecor.com', role: ROLES.ADMIN, pw: 'admin123' },
-  ];
-  for (const u of users) {
-    await db.run(`INSERT INTO users (name, email, role, password_hash) VALUES (?, ?, ?, ?)
-                  ON CONFLICT(email) DO NOTHING`, [u.name, u.email, u.role, hashPassword(u.pw)]);
+  // ---- Users (demo, dev-only) ------------------------------------------
+  if (seedDemo) {
+    const users = [
+      { name: 'Ravi (Requisitioner)', email: 'requisitioner@ddecor.com', role: ROLES.REQUISITIONER, pw: 'pass123' },
+      { name: 'Anupam (Procurement)', email: 'procurement@ddecor.com', role: ROLES.PROCUREMENT, pw: 'pass123' },
+      { name: 'Dept Head (Yarn)', email: 'depthead@ddecor.com', role: ROLES.DEPTHEAD, pw: 'pass123' },
+      { name: 'Administrator', email: 'admin@ddecor.com', role: ROLES.ADMIN, pw: 'admin123' },
+    ];
+    for (const u of users) {
+      await db.run(`INSERT INTO users (name, email, role, password_hash) VALUES (?, ?, ?, ?)
+                    ON CONFLICT(email) DO NOTHING`, [u.name, u.email, u.role, hashPassword(u.pw)]);
+    }
+  } else {
+    console.log('NODE_ENV=production — skipping demo accounts (use --demo to force).');
   }
   const userId = async (email) => (await db.get('SELECT id FROM users WHERE email = ?', [email])).id;
 
@@ -103,7 +113,8 @@ async function main() {
   }
 
   // ---- Demo requirement (matches the sample comparison sheet) ----------
-  if ((await db.get('SELECT COUNT(*) n FROM requirements')).n === 0) {
+  // Dev-only: depends on the demo users above.
+  if (seedDemo && (await db.get('SELECT COUNT(*) n FROM requirements')).n === 0) {
     const ref = await nextRequirementRef();
     const reqRow = await db.get(
       `INSERT INTO requirements (ref_no, title, status, priority, needed_by, raised_by, approved_by, approved_at, remarks)
@@ -138,11 +149,16 @@ async function main() {
     console.log(`Seeded demo requirement ${ref} with 3 vendor quotes.`);
   }
 
-  console.log('\nSeed complete. Login accounts (password in brackets):');
-  console.log('  requisitioner@ddecor.com  (pass123)  - raise requirements');
-  console.log('  procurement@ddecor.com    (pass123)  - RFQ, quotes, comparison');
-  console.log('  depthead@ddecor.com       (pass123)  - approve & award');
-  console.log('  admin@ddecor.com          (admin123) - full access\n');
+  if (seedDemo) {
+    console.log('\nSeed complete. Login accounts (password in brackets):');
+    console.log('  requisitioner@ddecor.com  (pass123)  - raise requirements');
+    console.log('  procurement@ddecor.com    (pass123)  - RFQ, quotes, comparison');
+    console.log('  depthead@ddecor.com       (pass123)  - approve & award');
+    console.log('  admin@ddecor.com          (admin123) - full access\n');
+  } else {
+    console.log('\nSeed complete (production: reference data only, no demo accounts).');
+    console.log('Log in with the Super Admin from SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD.\n');
+  }
 }
 
 main()

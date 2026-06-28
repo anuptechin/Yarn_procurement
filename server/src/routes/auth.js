@@ -13,13 +13,18 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     const token = signToken(user);
-    res.cookie('ypp_token', token, { httpOnly: true, sameSite: 'lax', maxAge: 12 * 3600 * 1000 });
+    res.cookie('ypp_token', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: req.secure, // HTTPS-only in prod (behind the proxy); off on localhost dev
+      maxAge: 12 * 3600 * 1000,
+    });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (e) { next(e); }
 });
 
-router.post('/logout', (_req, res) => {
-  res.clearCookie('ypp_token');
+router.post('/logout', (req, res) => {
+  res.clearCookie('ypp_token', { httpOnly: true, sameSite: 'lax', secure: req.secure });
   res.json({ ok: true });
 });
 
