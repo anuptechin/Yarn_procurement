@@ -17,6 +17,8 @@ import reportRoutes from './routes/reports.js';
 import portalRoutes from './routes/portal.js';
 import userRoutes from './routes/users.js';
 import auditRoutes from './routes/audit.js';
+import certificateRoutes from './routes/certificates.js';
+import { startCertAlertScheduler } from './services/certAlerts.js';
 
 const app = express();
 // Behind exactly one reverse proxy (nginx_proxy). Lets Express honour
@@ -39,6 +41,7 @@ app.use('/api/comparison', comparisonRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/certificates', certificateRoutes);
 // Public, token-based vendor portal (no login)
 app.use('/api/portal', portalRoutes);
 
@@ -60,6 +63,7 @@ app.use((err, _req, res, _next) => {
 migrate()
   .then(() => ensureSuperAdmin())
   .then(() => {
+    startCertAlertScheduler();
     app.listen(config.port, () => {
       console.log(`\n  Yarn Procurement Portal API running`);
       console.log(`  → http://localhost:${config.port}`);

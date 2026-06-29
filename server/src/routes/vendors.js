@@ -1,11 +1,16 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
 import { db, audit } from '../db.js';
 import { requireAuth, requireRole, ROLES } from '../auth.js';
 import { isoDate } from '../util/helpers.js';
 
 const router = Router();
 router.use(requireAuth);
+
+// Certificate files are held in the database; keep them small.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const CERT_COLS = 'c.id, c.vendor_id, c.cert_type, c.issued_by, c.issue_date, c.expiry_date, c.remark, c.file_name, c.file_size, (c.file_data IS NOT NULL) AS has_file';
 
 // list (with active cert count + soonest expiry)
 router.get('/', async (req, res, next) => {
@@ -25,7 +30,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const v = await db.get('SELECT * FROM vendors WHERE id = ?', [req.params.id]);
     if (!v) return res.status(404).json({ error: 'Vendor not found' });
-    const certificates = await db.all('SELECT * FROM vendor_certificates WHERE vendor_id = ? ORDER BY expiry_date', [v.id]);
+    const certificates = await db.all(`SELECT ${CERT_COLS} FROM vendor_certificates c WHERE c.vendor_id = ? ORDER BY c.expiry_date`, [v.id]);
     res.json({ vendor: v, certificates });
   } catch (e) { next(e); }
 });
@@ -123,6 +128,45 @@ router.delete('/:id/certificates/:certId', requireRole(ROLES.PROCUREMENT), async
   } catch (e) { next(e); }
 });
 
+// ---- certificate document: upload (admin only) ---------------------------
+router.post('/:id/certificates/:certId/file', requireRole(ROLES.ADMIN), upload.single('file'), async (req, res, next) => {
+  try {
+    const cert = await db.get('SELECT id FROM vendor_certificates WHERE id = ? AND vendor_id = ?', [req.params.certId, req.params.id]);
+    if (!cert) return res.status(404).json({ error: 'Certificate not found' });
+    if (!req.file) return res.status(400).json({ error: 'No file received' });
+    await db.run(
+      `UPDATE vendor_certificates
+         SET file_name = ?, file_mime = ?, file_size = ?, file_data = ?, uploaded_at = now(), uploaded_by = ?
+       WHERE id = ?`,
+      [req.file.originalname, req.file.mimetype, req.file.size, req.file.buffer, req.user.id, cert.id]
+    );
+    await audit(req.user.id, 'upload_cert', 'vendor', Number(req.params.id), { cert_id: cert.id, file: req.file.originalname });
+    res.json({ ok: true, file_name: req.file.originalname, file_size: req.file.size });
+  } catch (e) { next(e); }
+});
+
+// remove just the uploaded file (admin), keeping the certificate record
+router.delete('/:id/certificates/:certId/file', requireRole(ROLES.ADMIN), async (req, res, next) => {
+  try {
+    await db.run(
+      `UPDATE vendor_certificates SET file_name=NULL, file_mime=NULL, file_size=NULL, file_data=NULL, uploaded_at=NULL, uploaded_by=NULL
+       WHERE id = ? AND vendor_id = ?`, [req.params.certId, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+// ---- certificate document: download (any signed-in user) -----------------
+router.get('/:id/certificates/:certId/file', async (req, res, next) => {
+  try {
+    const c = await db.get('SELECT file_name, file_mime, file_data FROM vendor_certificates WHERE id = ? AND vendor_id = ?', [req.params.certId, req.params.id]);
+    if (!c || !c.file_data) return res.status(404).json({ error: 'No document on file for this certificate.' });
+    const safe = (c.file_name || 'certificate').replace(/[^\w.\- ]+/g, '_');
+    res.setHeader('Content-Type', c.file_mime || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${safe}"`);
+    res.send(c.file_data);
+  } catch (e) { next(e); }
+});
+
 // certificates expiring within N days (default 60) across all vendors
 router.get('/alerts/expiring', async (req, res, next) => {
   try {
@@ -130,7 +174,7 @@ router.get('/alerts/expiring', async (req, res, next) => {
     const today = isoDate();
     const until = isoDate(days);
     const rows = await db.all(`
-      SELECT c.*, v.name AS vendor_name FROM vendor_certificates c
+      SELECT ${CERT_COLS}, v.name AS vendor_name FROM vendor_certificates c
       JOIN vendors v ON v.id = c.vendor_id
       WHERE c.expiry_date IS NOT NULL AND c.expiry_date <= ?
       ORDER BY c.expiry_date`, [until]);

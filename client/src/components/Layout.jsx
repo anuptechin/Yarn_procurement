@@ -38,6 +38,7 @@ const ICONS = {
   awards: 'M12 3l2.5 5 5.5.8-4 4 1 5.5L12 21l-5-2.7 1-5.5-4-4 5.5-.8z',
   users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   audit: 'M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+  cert: 'M12 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM9 14l-1.5 7L12 19l4.5 2L15 14M9 11h.01',
 };
 
 function Icon({ d }) {
@@ -55,6 +56,7 @@ export default function Layout({ children }) {
     { to: '/', label: 'Dashboard', icon: 'dashboard', end: true, show: true },
     { to: '/requirements', label: 'Requirements', icon: 'req', show: true },
     { to: '/vendors', label: 'Vendor Master', icon: 'vendors', show: true },
+    { to: '/certificates', label: 'Certificates', icon: 'cert', show: true },
     { to: '/materials', label: 'Yarn & Prices', icon: 'materials', show: true },
     { to: '/awards', label: 'Awards & Savings', icon: 'awards', show: true },
     { to: '/users', label: 'Users', icon: 'users', show: can.admin(user?.role) },

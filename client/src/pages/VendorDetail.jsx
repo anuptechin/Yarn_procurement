@@ -12,6 +12,7 @@ export default function VendorDetail() {
   const [data, setData] = useState(null);
   const [adding, setAdding] = useState(false);
   const canEdit = can.procure(user.role);
+  const isAdmin = can.admin(user.role);
 
   const load = useCallback(() => { api.get(`/vendors/${id}`).then((r) => setData(r.data)); }, [id]);
   useEffect(load, [load]);
@@ -22,6 +23,14 @@ export default function VendorDetail() {
   async function removeCert(cid) {
     if (!confirm('Remove this certificate?')) return;
     await api.delete(`/vendors/${id}/certificates/${cid}`); toast.success('Certificate removed.'); load();
+  }
+
+  async function uploadCert(cid, file) {
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try { await api.post(`/vendors/${id}/certificates/${cid}/file`, fd); toast.success('Document uploaded.'); load(); }
+    catch (e) { toast.error(e.message); }
   }
 
   return (
@@ -54,13 +63,24 @@ export default function VendorDetail() {
                 const expired = c.expiry_date && d < 0;
                 const soon = !expired && d != null && d <= 60;
                 return (
-                  <div key={c.id} className="px-5 py-3 flex items-center gap-3">
-                    <div className="flex-1">
+                  <div key={c.id} className="px-5 py-3 flex flex-wrap items-center gap-3">
+                    <div className="flex-1 min-w-[160px]">
                       <div className="font-medium text-ink">{c.cert_type}</div>
-                      <div className="text-xs text-slate-400">{c.issued_by ? `${c.issued_by} · ` : ''}{c.issue_date ? `issued ${date(c.issue_date)}` : ''}{c.expiry_date ? ` · expires ${date(c.expiry_date)}` : ''}</div>
+                      <div className="text-xs text-slate-400">
+                        {c.issued_by ? `${c.issued_by} · ` : ''}{c.issue_date ? `issued ${date(c.issue_date)}` : ''}{c.expiry_date ? ` · expires ${date(c.expiry_date)}` : ''}
+                        {c.has_file && <span className="text-sage-700"> · 📎 {c.file_name}</span>}
+                      </div>
                     </div>
                     {c.expiry_date && <Badge tone={expired ? 'clay' : soon ? 'marigold' : 'sage'}>{expired ? 'Expired' : `${d}d left`}</Badge>}
-                    {canEdit && <button onClick={() => removeCert(c.id)} className="text-slate-300 hover:text-clay-500">×</button>}
+                    {c.has_file && <a className="btn-outline !py-1.5 !px-3 text-xs" href={`/api/vendors/${id}/certificates/${c.id}/file`}>Download</a>}
+                    {isAdmin && (
+                      <label className="btn-ghost !py-1.5 !px-3 text-xs cursor-pointer">
+                        {c.has_file ? 'Replace' : 'Upload'}
+                        <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp"
+                          onChange={(e) => { uploadCert(c.id, e.target.files[0]); e.target.value = ''; }} />
+                      </label>
+                    )}
+                    {canEdit && <button onClick={() => removeCert(c.id)} className="text-slate-300 hover:text-clay-500" title="Remove certificate">×</button>}
                   </div>
                 );
               })}

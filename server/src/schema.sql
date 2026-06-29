@@ -42,8 +42,21 @@ CREATE TABLE IF NOT EXISTS vendor_certificates (
   issue_date  TEXT,
   expiry_date TEXT,
   remark      TEXT,
+  file_name   TEXT,
+  file_mime   TEXT,
+  file_size   INTEGER,
+  file_data   BYTEA,
+  uploaded_at TIMESTAMPTZ,
+  uploaded_by INTEGER REFERENCES users(id),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Add certificate file columns to pre-existing tables (idempotent).
+ALTER TABLE vendor_certificates ADD COLUMN IF NOT EXISTS file_name   TEXT;
+ALTER TABLE vendor_certificates ADD COLUMN IF NOT EXISTS file_mime   TEXT;
+ALTER TABLE vendor_certificates ADD COLUMN IF NOT EXISTS file_size   INTEGER;
+ALTER TABLE vendor_certificates ADD COLUMN IF NOT EXISTS file_data   BYTEA;
+ALTER TABLE vendor_certificates ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMPTZ;
+ALTER TABLE vendor_certificates ADD COLUMN IF NOT EXISTS uploaded_by INTEGER;
 
 -- ---- Materials (yarn master) --------------------------------------------
 CREATE TABLE IF NOT EXISTS materials (
