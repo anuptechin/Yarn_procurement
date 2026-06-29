@@ -75,7 +75,13 @@ export default function RawMaterials() {
           </div>
         ))}
       </div>
-      <p className="text-xs text-slate-400 mt-4">Tip: a rise in cotton candy / index or PTA-MEG usually precedes vendor yarn quotes moving up — use these as your negotiation anchor.</p>
+      <div className="card p-5 mt-6 text-xs text-slate-500 leading-relaxed space-y-2.5">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-marigold-600">Notes &amp; definitions</div>
+        <p><b className="text-ink">Candy</b> — a traditional Indian cotton trading unit of weight: <b>1 candy = 355.62 kg</b> (≈ 784 lb). Per-Kg prices here are derived as <span className="font-mono text-ink">Candy ÷ 355.62</span>, and Rs/Candy from an international index as <span className="font-mono text-ink">USD rate × index(¢/lb) × 355.62 ÷ 0.4536 ÷ 100</span>.</p>
+        <p><b className="text-ink">Cotlook A Index</b> — is intended to be representative of the level of offering prices on the international raw cotton market. It is an average of the cheapest five quotations from a selection of the principal upland cottons traded internationally.</p>
+        <p><b className="text-ink">ICE</b> — Intercontinental Exchange® (ICE®) became the center of global trading in “soft” commodities with its acquisition of the New York Board of Trade (NYBOT) in 2007.</p>
+        <p className="text-slate-400 pt-1 border-t border-line">Tip: a rise in cotton candy / index or PTA–MEG usually precedes vendor yarn quotes moving up — use these as your negotiation anchor.</p>
+      </div>
 
       {adding && <AddModal lastDate={data.last_date} onClose={() => setAdding(false)}
         onDone={(d) => { setAdding(false); load(); toast.success(`Prices saved for ${date(d)}.`); }} />}
