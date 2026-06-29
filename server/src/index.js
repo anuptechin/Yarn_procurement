@@ -20,7 +20,7 @@ import auditRoutes from './routes/audit.js';
 import certificateRoutes from './routes/certificates.js';
 import rawMaterialRoutes from './routes/rawmaterials.js';
 import { startCertAlertScheduler } from './services/certAlerts.js';
-import { ensureRawMaterials } from './util/loadRawTrend.js';
+import { ensureRawMaterials, loadRawTrend } from './util/loadRawTrend.js';
 import { db } from './db.js';
 
 const app = express();
@@ -67,6 +67,14 @@ app.use((err, _req, res, _next) => {
 migrate()
   .then(() => ensureSuperAdmin())
   .then(() => ensureRawMaterials(db))
+  .then(async () => {
+    // First-time only: seed raw-material history from the committed JSON.
+    const row = await db.get('SELECT COUNT(*) n FROM raw_material_prices');
+    if (!row || Number(row.n) === 0) {
+      const res = await loadRawTrend(db);
+      if (res.points) console.log(`  → Raw material history loaded (${res.rows} rows, ${res.points} points).`);
+    }
+  })
   .then(() => {
     startCertAlertScheduler();
     app.listen(config.port, () => {
