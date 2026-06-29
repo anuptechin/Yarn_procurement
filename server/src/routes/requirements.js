@@ -22,6 +22,9 @@ router.get('/', async (req, res, next) => {
       WHERE 1=1`;
     const args = [];
     if (status) { sql += ' AND r.status = ?'; args.push(status); }
+    // Requisitioners only ever see Yarn requirements.
+    if (req.user.role === ROLES.REQUISITIONER) { sql += ` AND r.category = 'yarn'`; }
+    else if (req.query.category) { sql += ' AND r.category = ?'; args.push(req.query.category); }
     sql += ' ORDER BY r.created_at DESC';
     res.json({ requirements: await db.all(sql, args) });
   } catch (e) { next(e); }
@@ -35,6 +38,8 @@ router.get('/:id', async (req, res, next) => {
       FROM requirements r JOIN users u ON u.id = r.raised_by
       LEFT JOIN users a ON a.id = r.approved_by WHERE r.id = ?`, [req.params.id]);
     if (!r) return res.status(404).json({ error: 'Requirement not found' });
+    if (req.user.role === ROLES.REQUISITIONER && r.category !== 'yarn')
+      return res.status(404).json({ error: 'Requirement not found' });
     const items = await db.all('SELECT * FROM requirement_items WHERE requirement_id = ? ORDER BY line_no, id', [r.id]);
     const rfqs = await db.all(`
       SELECT rfq.*, v.name AS vendor_name,
@@ -45,16 +50,21 @@ router.get('/:id', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+const CATEGORIES = ['yarn', 'bedding_fabric', 'lining_fabric'];
+
 const itemSchema = z.object({
   material_id: z.coerce.number().int().nullable().optional(),
   mat_code: z.string().optional().default(''),
   description: z.string().optional().default(''),
   required_qty_kg: z.coerce.number().positive(),
   target_price: z.coerce.number().nullable().optional(),
+  yarn_type: z.string().nullable().optional(),     // Blends|Cotton|Linen|Polyester (yarn)
+  thread_count: z.string().nullable().optional(),  // TC (fabric)
 });
 
 const reqSchema = z.object({
   title: z.string().min(2),
+  category: z.enum(CATEGORIES).default('yarn'),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
   needed_by: z.string().nullable().optional(),
   remarks: z.string().nullable().optional(),
@@ -79,10 +89,11 @@ async function fillAndInsertItem(cx, requirementId, it, lineNo) {
   await cx.run(
     `INSERT INTO requirement_items
       (requirement_id, material_id, mat_code, description, required_qty_kg, target_price,
-       last_po_price, last_po_date, last_supplier_id, last_supplier_name, line_no)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       last_po_price, last_po_date, last_supplier_id, last_supplier_name, yarn_type, thread_count, line_no)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [requirementId, materialId, matCode, desc, it.required_qty_kg, it.target_price ?? null,
-      lastPoPrice, lastPoDate, lastSupplierId, lastSupplierName, lineNo]
+      lastPoPrice, lastPoDate, lastSupplierId, lastSupplierName,
+      it.yarn_type || null, it.thread_count || null, lineNo]
   );
 }
 
@@ -92,13 +103,16 @@ router.post('/', requireRole(ROLES.REQUISITIONER, ROLES.PROCUREMENT), async (req
     const parsed = reqSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message, issues: parsed.error.issues });
     const data = parsed.data;
+    // Fabric categories are procurement-only (admin allowed); requisitioners can only raise yarn.
+    if (data.category !== 'yarn' && req.user.role === ROLES.REQUISITIONER)
+      return res.status(403).json({ error: 'Only procurement can raise fabric requirements.' });
 
     const result = await db.tx(async (cx) => {
       const ref = await nextRequirementRef(cx);
       const row = await cx.get(
-        `INSERT INTO requirements (ref_no, title, status, priority, needed_by, raised_by, remarks)
-         VALUES (?, ?, 'pending_approval', ?, ?, ?, ?) RETURNING id`,
-        [ref, data.title, data.priority, data.needed_by || null, req.user.id, data.remarks || null]
+        `INSERT INTO requirements (ref_no, title, category, status, priority, needed_by, raised_by, remarks)
+         VALUES (?, ?, ?, 'pending_approval', ?, ?, ?, ?) RETURNING id`,
+        [ref, data.title, data.category, data.priority, data.needed_by || null, req.user.id, data.remarks || null]
       );
       let i = 1;
       for (const it of data.items) await fillAndInsertItem(cx, row.id, it, i++);
@@ -114,6 +128,8 @@ router.put('/:id', async (req, res, next) => {
   try {
     const r = await db.get('SELECT * FROM requirements WHERE id = ?', [req.params.id]);
     if (!r) return res.status(404).json({ error: 'Not found' });
+    if (req.user.role === ROLES.REQUISITIONER && r.category !== 'yarn')
+      return res.status(404).json({ error: 'Not found' });
     if (!['draft', 'pending_approval', 'rejected'].includes(r.status))
       return res.status(409).json({ error: `Cannot edit a requirement in status "${r.status}"` });
     const parsed = reqSchema.safeParse(req.body);
@@ -137,6 +153,11 @@ router.post('/:id/approve', requireRole(ROLES.DEPTHEAD), async (req, res, next) 
     const r = await db.get('SELECT * FROM requirements WHERE id = ?', [req.params.id]);
     if (!r) return res.status(404).json({ error: 'Not found' });
     if (r.status !== 'pending_approval') return res.status(409).json({ error: `Requirement is "${r.status}", not pending approval` });
+    // Yarn requirements can't be approved until procurement has set the Yarn Type on every item.
+    if (r.category === 'yarn') {
+      const missing = await db.get(`SELECT COUNT(*) n FROM requirement_items WHERE requirement_id = ? AND (yarn_type IS NULL OR yarn_type = '')`, [r.id]);
+      if (missing.n > 0) return res.status(409).json({ error: 'Yarn Type must be set on every item (by procurement) before this can be approved.' });
+    }
     await db.run(`UPDATE requirements SET status='approved', approved_by=?, approved_at=now(), rejected_reason=NULL, updated_at=now() WHERE id=?`,
       [req.user.id, r.id]);
     await audit(req.user.id, 'approve', 'requirement', r.id);

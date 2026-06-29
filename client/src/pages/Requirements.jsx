@@ -5,6 +5,9 @@ import { useAuth, can } from '../lib/auth.jsx';
 import { Badge, Loading, PageHeader, EmptyState } from '../components/ui.jsx';
 import { STATUS, PRIORITY, date } from '../lib/format.js';
 
+const CAT_LABEL = { yarn: 'Yarn', bedding_fabric: 'Bedding Fabric', lining_fabric: 'Lining Fabric' };
+const CAT_TONE = { yarn: 'indigo', bedding_fabric: 'marigold', lining_fabric: 'sage' };
+
 const FILTERS = [
   { key: '', label: 'All' },
   { key: 'pending_approval', label: 'Pending' },
@@ -53,7 +56,7 @@ export default function Requirements() {
             <table className="w-full min-w-[760px]">
               <thead className="bg-paper border-b border-line">
                 <tr>
-                  <th className="th">Ref</th><th className="th">Title</th><th className="th">Raised by</th>
+                  <th className="th">Ref</th><th className="th">Title</th><th className="th">Category</th><th className="th">Raised by</th>
                   <th className="th">Items</th><th className="th">Quotes</th><th className="th">Needed by</th>
                   <th className="th">Priority</th><th className="th">Status</th>
                 </tr>
@@ -63,6 +66,7 @@ export default function Requirements() {
                   <tr key={r.id} className="hover:bg-paper transition">
                     <td className="td"><Link to={`/requirements/${r.id}`} className="font-mono text-xs text-indigo-600 hover:underline">{r.ref_no}</Link></td>
                     <td className="td"><Link to={`/requirements/${r.id}`} className="font-medium text-ink hover:text-indigo-700">{r.title}</Link></td>
+                    <td className="td"><Badge tone={CAT_TONE[r.category] || 'slate'}>{CAT_LABEL[r.category] || 'Yarn'}</Badge></td>
                     <td className="td text-slate-500">{r.raised_by_name}</td>
                     <td className="td tnum text-slate-600">{r.item_count}</td>
                     <td className="td tnum text-slate-600">{r.quote_count}/{r.rfq_count}</td>

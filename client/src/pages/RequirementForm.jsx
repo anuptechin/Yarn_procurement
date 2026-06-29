@@ -1,61 +1,67 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { useAuth, can } from '../lib/auth.jsx';
 import { PageHeader, Spinner, useToast } from '../components/ui.jsx';
-import { inr, date } from '../lib/format.js';
 
-const blankItem = () => ({ key: Math.random().toString(36).slice(2), material_id: null, mat_code: '', description: '', required_qty_kg: '', target_price: '', _last: null });
+const CATS = {
+  yarn:           { label: 'Yarn',           unit: 'Kg',  descLabel: 'Yarn Description' },
+  bedding_fabric: { label: 'Bedding Fabric', unit: 'Mtr', descLabel: 'Description' },
+  lining_fabric:  { label: 'Lining Fabric',  unit: 'Mtr', descLabel: 'Description' },
+};
+const YARN_TYPES = ['Blends', 'Cotton', 'Linen', 'Polyester'];
+
+const blankItem = () => ({ key: Math.random().toString(36).slice(2), mat_code: '', description: '', required_qty_kg: '', yarn_type: '', thread_count: '' });
 
 export default function RequirementForm() {
   const { id } = useParams();
   const editing = !!id;
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
 
-  const [materials, setMaterials] = useState([]);
-  const [form, setForm] = useState({ title: '', priority: 'normal', needed_by: '', remarks: '' });
+  const isProc = can.procure(user.role);      // procurement / admin — may set Yarn Type & raise fabrics
+  const allowedCats = isProc ? Object.keys(CATS) : ['yarn'];
+
+  const [form, setForm] = useState({ title: '', category: 'yarn', priority: 'normal', needed_by: '', remarks: '' });
   const [items, setItems] = useState([blankItem()]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(editing);
-
-  useEffect(() => { api.get('/materials').then((r) => setMaterials(r.data.materials)); }, []);
 
   useEffect(() => {
     if (!editing) return;
     api.get(`/requirements/${id}`).then((r) => {
       const { requirement, items } = r.data;
       setForm({
-        title: requirement.title, priority: requirement.priority,
+        title: requirement.title, category: requirement.category || 'yarn', priority: requirement.priority,
         needed_by: requirement.needed_by || '', remarks: requirement.remarks || '',
       });
       setItems(items.map((it) => ({
-        key: String(it.id), material_id: it.material_id, mat_code: it.mat_code || '',
-        description: it.description || '', required_qty_kg: it.required_qty_kg, target_price: it.target_price || '',
-        _last: it.last_po_price ? { price: it.last_po_price, date: it.last_po_date, supplier: it.last_supplier_name } : null,
+        key: String(it.id), mat_code: it.mat_code || '', description: it.description || '',
+        required_qty_kg: it.required_qty_kg, yarn_type: it.yarn_type || '', thread_count: it.thread_count || '',
       })));
     }).finally(() => setLoading(false));
   }, [id, editing]);
 
+  const cat = CATS[form.category] || CATS.yarn;
+  const isYarn = form.category === 'yarn';
   function setItem(key, patch) { setItems((arr) => arr.map((it) => (it.key === key ? { ...it, ...patch } : it))); }
-  function pickMaterial(key, m) {
-    setItem(key, {
-      material_id: m.id, mat_code: m.mat_code, description: m.description,
-      _last: m.last_po_price ? { price: m.last_po_price, date: m.last_po_date } : null,
-    });
-  }
 
   async function submit(e) {
     e.preventDefault();
+    if (!form.title.trim()) return toast.error('Give the requirement a title.');
+    const rows = items.filter((it) => it.required_qty_kg && it.mat_code.trim());
+    if (rows.length === 0) return toast.error('Add at least one line with a SAP code and quantity.');
     const payload = {
-      ...form,
-      needed_by: form.needed_by || null,
-      items: items.filter((it) => it.required_qty_kg).map((it) => ({
-        material_id: it.material_id || null, mat_code: it.mat_code, description: it.description,
-        required_qty_kg: Number(it.required_qty_kg), target_price: it.target_price ? Number(it.target_price) : null,
+      title: form.title, category: form.category, priority: form.priority,
+      needed_by: form.needed_by || null, remarks: form.remarks || null,
+      items: rows.map((it) => ({
+        mat_code: it.mat_code.trim(), description: it.description.trim(),
+        required_qty_kg: Number(it.required_qty_kg),
+        yarn_type: isYarn ? (it.yarn_type || null) : null,
+        thread_count: isYarn ? null : (it.thread_count || null),
       })),
     };
-    if (payload.items.length === 0) return toast.error('Add at least one line item with a quantity.');
-    if (!payload.title.trim()) return toast.error('Give the requirement a title.');
     setBusy(true);
     try {
       if (editing) { await api.put(`/requirements/${id}`, payload); toast.success('Requirement updated & sent for approval.'); navigate(`/requirements/${id}`); }
@@ -68,8 +74,8 @@ export default function RequirementForm() {
   return (
     <form onSubmit={submit} className="max-w-4xl">
       <PageHeader eyebrow={editing ? 'Edit requirement' : 'New requirement'}
-        title={editing ? 'Revise yarn requirement' : 'Raise a yarn requirement'}
-        sub="Add the yarns and quantities you need. Once submitted, it goes to the dept head for approval before RFQs are sent." />
+        title={editing ? `Revise ${cat.label.toLowerCase()} requirement` : `Raise a ${cat.label.toLowerCase()} requirement`}
+        sub="Once submitted, it goes to the dept head for approval before RFQs are sent." />
 
       <div className="card p-5 space-y-4">
         <div className="grid sm:grid-cols-2 gap-4">
@@ -77,6 +83,14 @@ export default function RequirementForm() {
             <label className="label">Title</label>
             <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
               placeholder="e.g. Spun Polyester 2/30 — monthly replenishment" required />
+          </div>
+          <div>
+            <label className="label">Category</label>
+            <select className="input" value={form.category} disabled={editing}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}>
+              {allowedCats.map((c) => <option key={c} value={c}>{CATS[c].label}</option>)}
+            </select>
+            {editing && <p className="text-xs text-slate-400 mt-1">Category can’t be changed after creation.</p>}
           </div>
           <div>
             <label className="label">Priority</label>
@@ -94,14 +108,52 @@ export default function RequirementForm() {
 
       <div className="flex items-center justify-between mt-6 mb-2">
         <h2 className="font-display font-semibold text-ink">Line items</h2>
-        <button type="button" className="btn-ghost" onClick={() => setItems((a) => [...a, blankItem()])}>+ Add yarn</button>
+        <button type="button" className="btn-ghost" onClick={() => setItems((a) => [...a, blankItem()])}>+ Add line</button>
       </div>
+
+      {isYarn && !isProc && (
+        <p className="text-xs text-slate-500 mb-2">Yarn Type is set by the procurement team before approval.</p>
+      )}
 
       <div className="space-y-3">
         {items.map((it, i) => (
-          <ItemRow key={it.key} index={i} item={it} materials={materials}
-            onChange={(patch) => setItem(it.key, patch)} onPick={(m) => pickMaterial(it.key, m)}
-            onRemove={items.length > 1 ? () => setItems((a) => a.filter((x) => x.key !== it.key)) : null} />
+          <div key={it.key} className="card p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-7 w-7 mt-6 shrink-0 rounded-full bg-indigo-50 text-indigo-700 grid place-items-center text-xs font-bold font-mono">{i + 1}</div>
+              <div className="flex-1 grid sm:grid-cols-12 gap-3">
+                <div className="sm:col-span-3">
+                  <label className="label">SAP Code</label>
+                  <input className="input font-mono" value={it.mat_code} onChange={(e) => setItem(it.key, { mat_code: e.target.value })} placeholder="e.g. 50302SP0" required />
+                </div>
+                <div className={isYarn && isProc ? 'sm:col-span-4' : 'sm:col-span-5'}>
+                  <label className="label">{cat.descLabel}</label>
+                  <input className="input" value={it.description} onChange={(e) => setItem(it.key, { description: e.target.value })} placeholder="Description" />
+                </div>
+                {isYarn ? (
+                  isProc && (
+                    <div className="sm:col-span-3">
+                      <label className="label">Yarn Type</label>
+                      <select className="input" value={it.yarn_type} onChange={(e) => setItem(it.key, { yarn_type: e.target.value })}>
+                        <option value="">— select —</option>
+                        {YARN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  )
+                ) : (
+                  <div className="sm:col-span-2">
+                    <label className="label">TC</label>
+                    <input className="input tnum" value={it.thread_count} onChange={(e) => setItem(it.key, { thread_count: e.target.value })} placeholder="e.g. 300" />
+                  </div>
+                )}
+                <div className="sm:col-span-2">
+                  <label className="label">Qty ({cat.unit})</label>
+                  <input className="input tnum" type="number" min="0" step="any" value={it.required_qty_kg}
+                    onChange={(e) => setItem(it.key, { required_qty_kg: e.target.value })} placeholder="0" required />
+                </div>
+              </div>
+              {items.length > 1 && <button type="button" onClick={() => setItems((a) => a.filter((x) => x.key !== it.key))} className="mt-6 text-slate-300 hover:text-clay-500 text-lg shrink-0" title="Remove">×</button>}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -116,58 +168,5 @@ export default function RequirementForm() {
         <button type="button" className="btn-outline" onClick={() => navigate(-1)}>Cancel</button>
       </div>
     </form>
-  );
-}
-
-function ItemRow({ index, item, materials, onChange, onPick, onRemove }) {
-  const [q, setQ] = useState('');
-  const [open, setOpen] = useState(false);
-  const matches = q.trim()
-    ? materials.filter((m) => (m.mat_code + ' ' + m.description).toLowerCase().includes(q.toLowerCase())).slice(0, 8)
-    : materials.slice(0, 8);
-
-  return (
-    <div className="card p-4">
-      <div className="flex items-start gap-3">
-        <div className="h-7 w-7 mt-6 shrink-0 rounded-full bg-indigo-50 text-indigo-700 grid place-items-center text-xs font-bold font-mono">{index + 1}</div>
-        <div className="flex-1 grid sm:grid-cols-12 gap-3">
-          {/* material picker */}
-          <div className="sm:col-span-6 relative">
-            <label className="label">Yarn / Material</label>
-            <input className="input" placeholder="Search code or description…"
-              value={item.mat_code ? `${item.mat_code} · ${item.description}` : q}
-              onChange={(e) => { onChange({ material_id: null, mat_code: '', description: e.target.value }); setQ(e.target.value); setOpen(true); }}
-              onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} />
-            {open && matches.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full card shadow-pop max-h-64 overflow-auto scroll-thin">
-                {matches.map((m) => (
-                  <button type="button" key={m.id} onMouseDown={() => { onPick(m); setQ(''); setOpen(false); }}
-                    className="w-full text-left px-3 py-2 hover:bg-paper border-b border-line last:border-0">
-                    <div className="text-sm font-medium text-ink"><span className="font-mono text-indigo-600">{m.mat_code}</span> · {m.description}</div>
-                    <div className="text-xs text-slate-400">{m.category}{m.last_po_price ? ` · last PO ${inr(m.last_po_price)}` : ''}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-            {item._last && (
-              <div className="mt-1.5 text-xs text-sage-700 bg-sage-50 rounded px-2 py-1 inline-block">
-                Last PO: <b>{inr(item._last.price)}</b>/Kg{item._last.date ? ` · ${date(item._last.date)}` : ''}{item._last.supplier ? ` · ${item._last.supplier}` : ''}
-              </div>
-            )}
-          </div>
-          <div className="sm:col-span-3">
-            <label className="label">Required Qty (Kg)</label>
-            <input className="input tnum" type="number" min="0" step="any" value={item.required_qty_kg}
-              onChange={(e) => onChange({ required_qty_kg: e.target.value })} placeholder="0" required />
-          </div>
-          <div className="sm:col-span-3">
-            <label className="label">Target price (opt)</label>
-            <input className="input tnum" type="number" min="0" step="any" value={item.target_price}
-              onChange={(e) => onChange({ target_price: e.target.value })} placeholder="₹ / Kg" />
-          </div>
-        </div>
-        {onRemove && <button type="button" onClick={onRemove} className="mt-6 text-slate-300 hover:text-clay-500 text-lg shrink-0" title="Remove">×</button>}
-      </div>
-    </div>
   );
 }

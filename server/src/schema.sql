@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS requirements (
   id              SERIAL PRIMARY KEY,
   ref_no          TEXT NOT NULL UNIQUE,
   title           TEXT NOT NULL,
+  category        TEXT NOT NULL DEFAULT 'yarn',  -- yarn | bedding_fabric | lining_fabric
   status          TEXT NOT NULL DEFAULT 'draft',
   priority        TEXT NOT NULL DEFAULT 'normal',
   needed_by       TEXT,
@@ -115,8 +116,15 @@ CREATE TABLE IF NOT EXISTS requirement_items (
   last_po_date       TEXT,
   last_supplier_id   INTEGER REFERENCES vendors(id) ON DELETE SET NULL,
   last_supplier_name TEXT,
+  yarn_type          TEXT,    -- Blends | Cotton | Linen | Polyester (yarn only)
+  thread_count       TEXT,    -- TC value (fabric only)
   line_no            INTEGER NOT NULL DEFAULT 1
 );
+
+-- Category + procurement fields on pre-existing tables (idempotent).
+ALTER TABLE requirements      ADD COLUMN IF NOT EXISTS category     TEXT NOT NULL DEFAULT 'yarn';
+ALTER TABLE requirement_items ADD COLUMN IF NOT EXISTS yarn_type    TEXT;
+ALTER TABLE requirement_items ADD COLUMN IF NOT EXISTS thread_count TEXT;
 
 -- ---- RFQs: one row per (requirement, vendor) -----------------------------
 -- status: sent | viewed | responded | declined | expired

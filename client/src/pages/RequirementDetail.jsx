@@ -4,9 +4,10 @@ import { api } from '../lib/api.js';
 import { useAuth, can } from '../lib/auth.jsx';
 import { Badge, Loading, PageHeader, Modal, Spinner, useToast } from '../components/ui.jsx';
 import Stepper from '../components/Stepper.jsx';
-import { STATUS, PRIORITY, inr, kg, date } from '../lib/format.js';
+import { STATUS, PRIORITY, inr, kg, num, date } from '../lib/format.js';
 
 const RFQ_TONE = { sent: 'slate', viewed: 'indigo', responded: 'sage', declined: 'clay' };
+const CATS = { yarn: { label: 'Yarn', unit: 'Kg' }, bedding_fabric: { label: 'Bedding Fabric', unit: 'Mtr' }, lining_fabric: { label: 'Lining Fabric', unit: 'Mtr' } };
 
 export default function RequirementDetail() {
   const { id } = useParams();
@@ -26,6 +27,11 @@ export default function RequirementDetail() {
   if (err) return <div className="text-clay-600">{err}</div>;
   if (!data) return <Loading />;
   const { requirement: r, items, rfqs } = data;
+  const cat = CATS[r.category] || CATS.yarn;
+  const isYarn = r.category === 'yarn';
+  const showExtra = isYarn ? can.procure(user.role) : true; // Yarn Type hidden from requisitioner; TC always shown (fabric is procurement-only)
+  const extraLabel = isYarn ? 'Yarn Type' : 'TC';
+  const qtyFmt = (n) => `${num(n, Number(n) % 1 === 0 ? 0 : 2)} ${cat.unit}`;
 
   const isProc = can.procure(user.role);
   const isHead = can.approve(user.role);
@@ -66,7 +72,7 @@ export default function RequirementDetail() {
       <PageHeader
         eyebrow={<Link to="/requirements" className="hover:underline">← Requirements</Link>}
         title={r.title}
-        sub={<span className="font-mono text-indigo-600">{r.ref_no}</span>}
+        sub={<span><span className="font-mono text-indigo-600">{r.ref_no}</span> · {cat.label}</span>}
         actions={
           <div className="flex flex-wrap gap-2">
             {r.status === 'pending_approval' && isHead && (
@@ -105,7 +111,8 @@ export default function RequirementDetail() {
         <div className="overflow-x-auto scroll-thin">
           <table className="w-full min-w-[640px]">
             <thead className="bg-paper border-b border-line"><tr>
-              <th className="th w-10">#</th><th className="th">Mat Code</th><th className="th">Description</th>
+              <th className="th w-10">#</th><th className="th">SAP Code</th><th className="th">{isYarn ? 'Yarn Description' : 'Description'}</th>
+              {showExtra && <th className="th">{extraLabel}</th>}
               <th className="th text-right">Req Qty</th><th className="th text-right">Last PO</th><th className="th">Last Supplier</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
@@ -114,7 +121,8 @@ export default function RequirementDetail() {
                   <td className="td font-mono text-slate-400">{i + 1}</td>
                   <td className="td font-mono text-indigo-600 text-xs">{it.mat_code || '—'}</td>
                   <td className="td font-medium text-ink">{it.description}</td>
-                  <td className="td text-right tnum">{kg(it.required_qty_kg)}</td>
+                  {showExtra && <td className="td">{(isYarn ? it.yarn_type : it.thread_count) || <span className="text-clay-600">—</span>}</td>}
+                  <td className="td text-right tnum">{qtyFmt(it.required_qty_kg)}</td>
                   <td className="td text-right tnum">{it.last_po_price ? inr(it.last_po_price) : '—'}</td>
                   <td className="td text-slate-500">{it.last_supplier_name || '—'}</td>
                 </tr>
