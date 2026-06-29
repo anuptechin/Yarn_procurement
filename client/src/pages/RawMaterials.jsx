@@ -35,6 +35,9 @@ export default function RawMaterials() {
 
   if (!data) return <Loading />;
   const selMat = data.materials.find((m) => m.code === sel) || data.materials.find((m) => m.latest != null);
+  const COMBINED = ['FX', 'Cotton Index', 'Crude'];
+  const combined = grouped.filter((g) => COMBINED.includes(g.grp));
+  const others = grouped.filter((g) => !COMBINED.includes(g.grp));
 
   return (
     <>
@@ -46,32 +49,26 @@ export default function RawMaterials() {
 
       {selMat && <TrendCard mat={selMat} />}
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
-        {grouped.map(({ grp, items }) => (
+      {/* FX · Cotton Index · Crude — combined into one pane */}
+      {combined.length > 0 && (
+        <div className="card overflow-hidden mt-6">
+          <div className="px-4 py-2.5 border-b border-line bg-paper"><h3 className="font-display font-semibold text-sm text-ink">Market Benchmarks</h3></div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-line">
+            {combined.map(({ grp, items }) => (
+              <div key={grp} className="pb-1">
+                <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-marigold-600">{grp}</div>
+                <MatTable items={items} sel={sel} setSel={setSel} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
+        {others.map(({ grp, items }) => (
           <div key={grp} className="card overflow-hidden">
             <div className="px-4 py-2.5 border-b border-line bg-paper"><h3 className="font-display font-semibold text-sm text-ink">{grp}</h3></div>
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-line">
-                {items.map((m) => {
-                  const up = m.change_pct != null && m.change_pct > 0;
-                  const down = m.change_pct != null && m.change_pct < 0;
-                  return (
-                    <tr key={m.code} onClick={() => setSel(m.code)}
-                      className={`cursor-pointer transition ${sel === m.code ? 'bg-indigo-50' : 'hover:bg-slate-50/60'}`}>
-                      <td className="px-4 py-2">
-                        <div className="font-medium text-ink leading-tight">{m.name}</div>
-                        <div className="text-[11px] text-slate-400">{m.unit}</div>
-                      </td>
-                      <td className="px-3 py-2 text-right tnum font-semibold text-ink whitespace-nowrap">{fmt(m.latest, m.unit)}</td>
-                      <td className="px-4 py-2 text-right tnum text-xs whitespace-nowrap">
-                        {m.change_pct == null ? <span className="text-slate-300">—</span>
-                          : <span className={up ? 'text-clay-600' : down ? 'text-sage-700' : 'text-slate-400'}>{up ? '▲' : down ? '▼' : ''} {num(Math.abs(m.change_pct), 1)}%</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <MatTable items={items} sel={sel} setSel={setSel} />
           </div>
         ))}
       </div>
@@ -86,6 +83,33 @@ export default function RawMaterials() {
       {adding && <AddModal lastDate={data.last_date} onClose={() => setAdding(false)}
         onDone={(d) => { setAdding(false); load(); toast.success(`Prices saved for ${date(d)}.`); }} />}
     </>
+  );
+}
+
+function MatTable({ items, sel, setSel }) {
+  return (
+    <table className="w-full text-sm">
+      <tbody className="divide-y divide-line">
+        {items.map((m) => {
+          const up = m.change_pct != null && m.change_pct > 0;
+          const down = m.change_pct != null && m.change_pct < 0;
+          return (
+            <tr key={m.code} onClick={() => setSel(m.code)}
+              className={`cursor-pointer transition ${sel === m.code ? 'bg-indigo-50' : 'hover:bg-slate-50/60'}`}>
+              <td className="px-4 py-2">
+                <div className="font-medium text-ink leading-tight">{m.name}</div>
+                <div className="text-[11px] text-slate-400">{m.unit}</div>
+              </td>
+              <td className="px-3 py-2 text-right tnum font-semibold text-ink whitespace-nowrap">{fmt(m.latest, m.unit)}</td>
+              <td className="px-4 py-2 text-right tnum text-xs whitespace-nowrap">
+                {m.change_pct == null ? <span className="text-slate-300">—</span>
+                  : <span className={up ? 'text-clay-600' : down ? 'text-sage-700' : 'text-slate-400'}>{up ? '▲' : down ? '▼' : ''} {num(Math.abs(m.change_pct), 1)}%</span>}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
