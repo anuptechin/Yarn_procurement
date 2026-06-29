@@ -198,7 +198,7 @@ function AddModal({ lastDate, onClose, onDone }) {
   const [catalog, setCatalog] = useState(null);
   const [groups, setGroups] = useState([]);
   const [vals, setVals] = useState({});
-  const [pdate, setPdate] = useState('');
+  const [pdate, setPdate] = useState(lastDate || '');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
