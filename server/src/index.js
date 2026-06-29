@@ -18,7 +18,10 @@ import portalRoutes from './routes/portal.js';
 import userRoutes from './routes/users.js';
 import auditRoutes from './routes/audit.js';
 import certificateRoutes from './routes/certificates.js';
+import rawMaterialRoutes from './routes/rawmaterials.js';
 import { startCertAlertScheduler } from './services/certAlerts.js';
+import { ensureRawMaterials } from './util/loadRawTrend.js';
+import { db } from './db.js';
 
 const app = express();
 // Behind exactly one reverse proxy (nginx_proxy). Lets Express honour
@@ -42,6 +45,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/raw-materials', rawMaterialRoutes);
 // Public, token-based vendor portal (no login)
 app.use('/api/portal', portalRoutes);
 
@@ -62,6 +66,7 @@ app.use((err, _req, res, _next) => {
 
 migrate()
   .then(() => ensureSuperAdmin())
+  .then(() => ensureRawMaterials(db))
   .then(() => {
     startCertAlertScheduler();
     app.listen(config.port, () => {

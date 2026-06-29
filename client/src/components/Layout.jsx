@@ -39,6 +39,7 @@ const ICONS = {
   users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   audit: 'M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
   cert: 'M12 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM9 14l-1.5 7L12 19l4.5 2L15 14M9 11h.01',
+  raw: 'M3 3v18h18M7 15l3-4 3 3 4-6',
 };
 
 function Icon({ d }) {
@@ -58,6 +59,7 @@ export default function Layout({ children }) {
     { to: '/vendors', label: 'Vendor Master', icon: 'vendors', show: true },
     { to: '/certificates', label: 'Certificates', icon: 'cert', show: true },
     { to: '/materials', label: 'Yarn & Prices', icon: 'materials', show: true },
+    { to: '/raw-materials', label: 'Raw Material Trend', icon: 'raw', show: ['procurement', 'depthead', 'admin'].includes(user?.role) },
     { to: '/awards', label: 'Awards & Savings', icon: 'awards', show: true },
     { to: '/users', label: 'Users', icon: 'users', show: can.admin(user?.role) },
     { to: '/audit', label: 'Audit Log', icon: 'audit', show: !!user?.is_super },

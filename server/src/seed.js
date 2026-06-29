@@ -10,6 +10,7 @@ import { db, pool, migrate } from './db.js';
 import { hashPassword, ROLES, ensureSuperAdmin } from './auth.js';
 import { nextRequirementRef, newToken, isoDate } from './util/helpers.js';
 import { loadMarketTrend } from './util/loadTrend.js';
+import { loadRawTrend } from './util/loadRawTrend.js';
 
 const reset = process.argv.includes('--reset');
 // Demo accounts + demo requirement are dev-only. Skip them in production so a
@@ -106,6 +107,9 @@ async function main() {
   // Full Yarn Market Price Trend (extracted from SAP work.xlsx)
   const trendResult = await loadMarketTrend(db);
   console.log(`Loaded market trend: ${trendResult.materials} materials, ${trendResult.points} price points.`);
+
+  const rawTrend = await loadRawTrend(db);
+  console.log(`Loaded raw material trend: ${rawTrend.rows} rows, ${rawTrend.points} price points.`);
 
   if ((await db.get(`SELECT COUNT(*) n FROM price_history WHERE source='po'`)).n === 0) {
     await db.run(`INSERT INTO price_history (material_id, price_date, price_per_kg, source, vendor_id) VALUES (?, '2026-02-01', 175, 'po', ?)`,

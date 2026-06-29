@@ -187,6 +187,29 @@ CREATE TABLE IF NOT EXISTS awards (
   justification       TEXT
 );
 
+-- ---- Raw material price trend (negotiation intelligence) -----------------
+-- kind: 'input' (typed) | 'computed' (derived from `compute`)
+CREATE TABLE IF NOT EXISTS raw_materials (
+  id      SERIAL PRIMARY KEY,
+  code    TEXT NOT NULL UNIQUE,
+  name    TEXT NOT NULL,
+  grp     TEXT NOT NULL,
+  unit    TEXT,
+  kind    TEXT NOT NULL DEFAULT 'input',
+  compute TEXT,                        -- JSON: {type:'per_kg',src} | {type:'rs_candy',index}
+  sort    INTEGER NOT NULL DEFAULT 0,
+  active  INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS raw_material_prices (
+  id              SERIAL PRIMARY KEY,
+  raw_material_id INTEGER NOT NULL REFERENCES raw_materials(id) ON DELETE CASCADE,
+  price_date      TEXT NOT NULL,
+  value           NUMERIC(16,4),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(raw_material_id, price_date)
+);
+CREATE INDEX IF NOT EXISTS idx_rmp ON raw_material_prices(raw_material_id, price_date);
+
 -- ---- Audit log -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS audit_log (
   id         SERIAL PRIMARY KEY,
