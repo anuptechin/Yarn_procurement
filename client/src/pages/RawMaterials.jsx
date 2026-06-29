@@ -102,13 +102,14 @@ function TrendCard({ mat }) {
       </div>
       {!series ? <div className="h-44 grid place-items-center"><Spinner className="text-indigo-600" /></div>
         : series.length < 2 ? <div className="h-44 grid place-items-center text-sm text-slate-400">Not enough history to chart.</div>
-        : <LineChart points={series} />}
+        : <LineChart points={series} unit={mat.unit} />}
     </div>
   );
 }
 
-function LineChart({ points }) {
-  const W = 900, H = 200, padL = 48, padR = 12, padT = 12, padB = 24;
+function LineChart({ points, unit }) {
+  const [hover, setHover] = useState(null);
+  const W = 900, H = 210, padL = 48, padR = 12, padT = 14, padB = 24;
   const vals = points.map((p) => p.value);
   const min = Math.min(...vals), max = Math.max(...vals);
   const span = max - min || 1;
@@ -118,6 +119,30 @@ function LineChart({ points }) {
   const area = `${line} L${x(points.length - 1).toFixed(1)},${H - padB} L${padL},${H - padB} Z`;
   const ticks = [max, (max + min) / 2, min];
   const labelIdx = [0, Math.floor(points.length / 2), points.length - 1];
+
+  function onMove(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    setHover(Math.max(0, Math.min(points.length - 1, Math.round(ratio * (points.length - 1)))));
+  }
+
+  let tip = null;
+  if (hover != null) {
+    const p = points[hover], px = x(hover), py = y(p.value);
+    const boxW = 152, boxH = 40;
+    const tx = Math.min(Math.max(px - boxW / 2, padL), W - padR - boxW);
+    const label = `${num(p.value, Math.abs(p.value) >= 1000 ? 0 : 2)}${unit ? ' ' + unit : ''}`;
+    tip = (
+      <g>
+        <line x1={px} y1={padT} x2={px} y2={H - padB} stroke="var(--chart-accent)" strokeWidth="1" strokeDasharray="3 3" />
+        <circle cx={px} cy={py} r="4" fill="var(--chart-dot-fill)" stroke="var(--chart-line)" strokeWidth="2" />
+        <rect x={tx} y={padT} width={boxW} height={boxH} rx="6" fill="var(--chart-dot-fill)" stroke="var(--chart-grid)" strokeWidth="1" />
+        <text x={tx + 9} y={padT + 16} fontSize="10" fill="var(--chart-axis)">{date(p.date)}</text>
+        <text x={tx + 9} y={padT + 32} fontSize="12.5" fontWeight="bold" fill="var(--chart-line)" fontFamily="IBM Plex Mono, monospace">{label}</text>
+      </g>
+    );
+  }
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'auto' }}>
       <defs><linearGradient id="rmg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--chart-line)" stopOpacity="0.16" /><stop offset="100%" stopColor="var(--chart-line)" stopOpacity="0" /></linearGradient></defs>
@@ -130,6 +155,10 @@ function LineChart({ points }) {
       {labelIdx.map((i) => <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize="10" fill="var(--chart-axis)">{date(points[i].date)}</text>)}
       <path d={area} fill="url(#rmg)" />
       <path d={line} fill="none" stroke="var(--chart-line)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {tip}
+      {/* transparent overlay captures the mouse across the whole plot */}
+      <rect x={padL} y={padT} width={W - padL - padR} height={H - padT - padB} fill="transparent"
+        onMouseMove={onMove} onMouseLeave={() => setHover(null)} style={{ cursor: 'crosshair' }} />
     </svg>
   );
 }
