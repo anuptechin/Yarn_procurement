@@ -153,10 +153,11 @@ router.post('/:id/approve', requireRole(ROLES.DEPTHEAD), async (req, res, next) 
     const r = await db.get('SELECT * FROM requirements WHERE id = ?', [req.params.id]);
     if (!r) return res.status(404).json({ error: 'Not found' });
     if (r.status !== 'pending_approval') return res.status(409).json({ error: `Requirement is "${r.status}", not pending approval` });
-    // Yarn requirements can't be approved until procurement has set the Yarn Type on every item.
-    if (r.category === 'yarn') {
-      const missing = await db.get(`SELECT COUNT(*) n FROM requirement_items WHERE requirement_id = ? AND (yarn_type IS NULL OR yarn_type = '')`, [r.id]);
-      if (missing.n > 0) return res.status(409).json({ error: 'Yarn Type must be set on every item (by procurement) before this can be approved.' });
+    // Can't approve until procurement has set the material type (Yarn/Fabric Type) on every item.
+    const missing = await db.get(`SELECT COUNT(*) n FROM requirement_items WHERE requirement_id = ? AND (yarn_type IS NULL OR yarn_type = '')`, [r.id]);
+    if (missing.n > 0) {
+      const field = r.category === 'yarn' ? 'Yarn Type' : 'Fabric Type';
+      return res.status(409).json({ error: `${field} must be set on every item (by procurement) before this can be approved.` });
     }
     await db.run(`UPDATE requirements SET status='approved', approved_by=?, approved_at=now(), rejected_reason=NULL, updated_at=now() WHERE id=?`,
       [req.user.id, r.id]);

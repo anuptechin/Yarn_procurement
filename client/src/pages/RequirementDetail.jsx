@@ -29,8 +29,9 @@ export default function RequirementDetail() {
   const { requirement: r, items, rfqs } = data;
   const cat = CATS[r.category] || CATS.yarn;
   const isYarn = r.category === 'yarn';
-  const showExtra = isYarn ? can.procure(user.role) : true; // Yarn Type hidden from requisitioner; TC always shown (fabric is procurement-only)
-  const extraLabel = isYarn ? 'Yarn Type' : 'TC';
+  const showType = isYarn ? can.procure(user.role) : true; // Yarn Type hidden from requisitioner; Fabric Type always shown (fabric is procurement-only)
+  const typeLabel = isYarn ? 'Yarn Type' : 'Fabric Type';
+  const showTC = !isYarn;
   const qtyFmt = (n) => `${num(n, Number(n) % 1 === 0 ? 0 : 2)} ${cat.unit}`;
 
   const isProc = can.procure(user.role);
@@ -112,7 +113,8 @@ export default function RequirementDetail() {
           <table className="w-full min-w-[640px]">
             <thead className="bg-paper border-b border-line"><tr>
               <th className="th w-10">#</th><th className="th">SAP Code</th><th className="th">{isYarn ? 'Yarn Description' : 'Description'}</th>
-              {showExtra && <th className="th">{extraLabel}</th>}
+              {showType && <th className="th">{typeLabel}</th>}
+              {showTC && <th className="th">TC</th>}
               <th className="th text-right">Req Qty</th><th className="th text-right">Last PO</th><th className="th">Last Supplier</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
@@ -121,7 +123,8 @@ export default function RequirementDetail() {
                   <td className="td font-mono text-slate-400">{i + 1}</td>
                   <td className="td font-mono text-indigo-600 text-xs">{it.mat_code || '—'}</td>
                   <td className="td font-medium text-ink">{it.description}</td>
-                  {showExtra && <td className="td">{(isYarn ? it.yarn_type : it.thread_count) || <span className="text-clay-600">—</span>}</td>}
+                  {showType && <td className="td">{it.yarn_type || <span className="text-clay-600">—</span>}</td>}
+                  {showTC && <td className="td text-slate-600">{it.thread_count || '—'}</td>}
                   <td className="td text-right tnum">{qtyFmt(it.required_qty_kg)}</td>
                   <td className="td text-right tnum">{it.last_po_price ? inr(it.last_po_price) : '—'}</td>
                   <td className="td text-slate-500">{it.last_supplier_name || '—'}</td>

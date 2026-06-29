@@ -45,6 +45,11 @@ export default function RequirementForm() {
 
   const cat = CATS[form.category] || CATS.yarn;
   const isYarn = form.category === 'yarn';
+  // Material type: shown for fabrics always (procurement-only), and for yarn only to procurement.
+  const showType = isYarn ? isProc : true;
+  const typeLabel = isYarn ? 'Yarn Type' : 'Fabric Type';
+  const descSpan = 7 - (showType ? 2 : 0) - (isYarn ? 0 : 2); // 3 | 5 | 7
+  const SPAN = { 3: 'sm:col-span-3', 5: 'sm:col-span-5', 7: 'sm:col-span-7' };
   function setItem(key, patch) { setItems((arr) => arr.map((it) => (it.key === key ? { ...it, ...patch } : it))); }
 
   async function submit(e) {
@@ -58,8 +63,8 @@ export default function RequirementForm() {
       items: rows.map((it) => ({
         mat_code: it.mat_code.trim(), description: it.description.trim(),
         required_qty_kg: Number(it.required_qty_kg),
-        yarn_type: isYarn ? (it.yarn_type || null) : null,
-        thread_count: isYarn ? null : (it.thread_count || null),
+        yarn_type: it.yarn_type || null,                          // material type (yarn or fabric)
+        thread_count: isYarn ? null : (it.thread_count || null),  // TC (fabric only)
       })),
     };
     setBusy(true);
@@ -125,21 +130,20 @@ export default function RequirementForm() {
                   <label className="label">SAP Code</label>
                   <input className="input font-mono" value={it.mat_code} onChange={(e) => setItem(it.key, { mat_code: e.target.value })} placeholder="e.g. 50302SP0" required />
                 </div>
-                <div className={isYarn && isProc ? 'sm:col-span-4' : 'sm:col-span-5'}>
+                <div className={SPAN[descSpan]}>
                   <label className="label">{cat.descLabel}</label>
                   <input className="input" value={it.description} onChange={(e) => setItem(it.key, { description: e.target.value })} placeholder="Description" />
                 </div>
-                {isYarn ? (
-                  isProc && (
-                    <div className="sm:col-span-3">
-                      <label className="label">Yarn Type</label>
-                      <select className="input" value={it.yarn_type} onChange={(e) => setItem(it.key, { yarn_type: e.target.value })}>
-                        <option value="">— select —</option>
-                        {YARN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
-                  )
-                ) : (
+                {showType && (
+                  <div className="sm:col-span-2">
+                    <label className="label">{typeLabel}</label>
+                    <select className="input" value={it.yarn_type} onChange={(e) => setItem(it.key, { yarn_type: e.target.value })}>
+                      <option value="">— select —</option>
+                      {YARN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                )}
+                {!isYarn && (
                   <div className="sm:col-span-2">
                     <label className="label">TC</label>
                     <input className="input tnum" value={it.thread_count} onChange={(e) => setItem(it.key, { thread_count: e.target.value })} placeholder="e.g. 300" />
