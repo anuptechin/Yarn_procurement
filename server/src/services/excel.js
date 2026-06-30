@@ -13,7 +13,7 @@ export async function streamComparisonXlsx(res, comparison) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "D'Decor Yarn Procurement Portal";
   const ws = wb.addWorksheet('Comparison', {
-    views: [{ state: 'frozen', xSplit: 4, ySplit: 4 }],
+    views: [{ state: 'frozen', xSplit: 6, ySplit: 4 }],
   });
 
   const { requirement, vendors, items } = comparison;
@@ -22,7 +22,7 @@ export async function streamComparisonXlsx(res, comparison) {
   const unit = cat.unit;
 
   // Title
-  ws.mergeCells(1, 1, 1, 4 + vendors.length * 3);
+  ws.mergeCells(1, 1, 1, 6 + vendors.length * 3);
   const title = ws.getCell(1, 1);
   title.value = `${cat.label} Price Comparison  —  ${requirement.ref_no}  —  ${requirement.title}`;
   title.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -31,8 +31,8 @@ export async function streamComparisonXlsx(res, comparison) {
   ws.getRow(1).height = 26;
 
   // Header rows: base columns + per-vendor group
-  const baseCols = ['SAP Code', 'Description', `Req Qty (${unit})`, `Last PO/${unit} (ex-GST)`];
-  const headerRow1 = ['', '', '', ''];
+  const baseCols = ['SAP Code', 'Description', `Req Qty (${unit})`, `Last PO/${unit} (ex-GST)`, 'Last PO Date', 'Last Supplier'];
+  const headerRow1 = ['', '', '', '', '', ''];
   const headerRow2 = [...baseCols];
 
   vendors.forEach((v) => {
@@ -46,7 +46,7 @@ export async function streamComparisonXlsx(res, comparison) {
 
   // merge vendor name across its 3 cols
   vendors.forEach((v, i) => {
-    const start = 5 + i * 3;
+    const start = 7 + i * 3;
     ws.mergeCells(rH1.number, start, rH1.number, start + 2);
   });
 
@@ -62,7 +62,7 @@ export async function streamComparisonXlsx(res, comparison) {
   // Data rows
   items.forEach((row) => {
     const it = row.item;
-    const data = [it.mat_code, it.description, it.required_qty_kg, it.last_po_price];
+    const data = [it.mat_code, it.description, it.required_qty_kg, it.last_po_price, it.last_po_date || '', it.last_supplier_name || ''];
     row.cells.forEach((c) => {
       if (!c.has_quote) {
         data.push('—', 'no response', '');
@@ -82,7 +82,7 @@ export async function streamComparisonXlsx(res, comparison) {
 
     // highlight recommended vendor cells
     vendors.forEach((v, i) => {
-      const startCol = 5 + i * 3;
+      const startCol = 7 + i * 3;
       const cell = row.cells[i];
       if (cell && cell.quoted) xlRow.getCell(startCol).numFmt = '#,##0.00';
       if (v.vendor_id === row.recommended_vendor_id) {
@@ -103,11 +103,13 @@ export async function streamComparisonXlsx(res, comparison) {
   ws.getColumn(1).width = 14;
   ws.getColumn(2).width = 38;
   ws.getColumn(3).width = 12;
-  ws.getColumn(4).width = 15;
+  ws.getColumn(4).width = 16;
+  ws.getColumn(5).width = 14;
+  ws.getColumn(6).width = 20;
   vendors.forEach((_, i) => {
-    ws.getColumn(5 + i * 3).width = 12;
-    ws.getColumn(6 + i * 3).width = 18;
-    ws.getColumn(7 + i * 3).width = 8;
+    ws.getColumn(7 + i * 3).width = 12;
+    ws.getColumn(8 + i * 3).width = 18;
+    ws.getColumn(9 + i * 3).width = 8;
   });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

@@ -60,6 +60,9 @@ const itemSchema = z.object({
   target_price: z.coerce.number().nullable().optional(),
   yarn_type: z.string().nullable().optional(),     // Blends|Cotton|Linen|Polyester (yarn)
   thread_count: z.string().nullable().optional(),  // TC (fabric)
+  last_po_price: z.coerce.number().nullable().optional(),    // procurement-entered last purchase price (ex-GST)
+  last_po_date: z.string().nullable().optional(),
+  last_supplier_id: z.coerce.number().int().nullable().optional(),
 });
 
 const reqSchema = z.object({
@@ -73,18 +76,28 @@ const reqSchema = z.object({
 
 // auto-fill last PO price/date/supplier from price_history when material known
 async function fillAndInsertItem(cx, requirementId, it, lineNo) {
-  let lastPoPrice = null, lastPoDate = null, lastSupplierId = null, lastSupplierName = null;
+  // Manual entry (procurement) takes precedence; fall back to material price history.
+  let lastPoPrice = it.last_po_price ?? null;
+  let lastPoDate = it.last_po_date || null;
+  let lastSupplierId = it.last_supplier_id ?? null;
+  let lastSupplierName = null;
   let matCode = it.mat_code, desc = it.description, materialId = it.material_id || null;
 
   if (materialId) {
     const m = await cx.get('SELECT * FROM materials WHERE id = ?', [materialId]);
     if (m) { matCode = m.mat_code; desc = desc || m.description; }
-    const po = await cx.get(`
-      SELECT ph.*, v.name AS vendor_name FROM price_history ph
-      LEFT JOIN vendors v ON v.id = ph.vendor_id
-      WHERE ph.material_id = ? AND ph.source = 'po'
-      ORDER BY ph.price_date DESC LIMIT 1`, [materialId]);
-    if (po) { lastPoPrice = po.price_per_kg; lastPoDate = po.price_date; lastSupplierId = po.vendor_id; lastSupplierName = po.vendor_name; }
+    if (lastPoPrice == null) {
+      const po = await cx.get(`
+        SELECT ph.*, v.name AS vendor_name FROM price_history ph
+        LEFT JOIN vendors v ON v.id = ph.vendor_id
+        WHERE ph.material_id = ? AND ph.source = 'po'
+        ORDER BY ph.price_date DESC LIMIT 1`, [materialId]);
+      if (po) { lastPoPrice = po.price_per_kg; lastPoDate = po.price_date; lastSupplierId = po.vendor_id; lastSupplierName = po.vendor_name; }
+    }
+  }
+  if (lastSupplierId && !lastSupplierName) {
+    const v = await cx.get('SELECT name FROM vendors WHERE id = ?', [lastSupplierId]);
+    lastSupplierName = v ? v.name : null;
   }
   await cx.run(
     `INSERT INTO requirement_items

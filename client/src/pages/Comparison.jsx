@@ -127,9 +127,15 @@ function ItemComparison({ row, vendors, unit, isHead, pick, onPick, reason, onRe
         </div>
         <div className="flex items-center gap-5 text-sm">
           <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Req Qty</div><div className="tnum font-semibold">{num(item.required_qty_kg)} {unit}</div></div>
-          <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Last PO (ex-GST)</div><div className="tnum font-semibold">{item.last_po_price ? inr(item.last_po_price) : '—'}</div>
-            {item.last_po_date && <div className="text-[10px] text-slate-400">{date(item.last_po_date)}</div>}</div>
         </div>
+      </div>
+
+      {/* Last purchase reference — separate band */}
+      <div className="px-5 py-2.5 bg-indigo-50/60 border-b border-line flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+        <span className="text-[11px] uppercase tracking-wide text-indigo-700 font-semibold">Last Purchase</span>
+        <span className="text-slate-500">Price: <b className="text-ink tnum">{item.last_po_price ? inr(item.last_po_price) : '—'}</b>{item.last_po_price ? <span className="text-slate-400">/{unit} ex-GST</span> : ''}</span>
+        <span className="text-slate-500">Date: <b className="text-ink">{item.last_po_date ? date(item.last_po_date) : '—'}</b></span>
+        <span className="text-slate-500">Vendor: <b className="text-ink">{item.last_supplier_name || '—'}</b></span>
       </div>
 
       {/* vendor cards */}

@@ -11,7 +11,7 @@ const CATS = {
 };
 const YARN_TYPES = ['Blends', 'Cotton', 'Linen', 'Polyester'];
 
-const blankItem = () => ({ key: Math.random().toString(36).slice(2), mat_code: '', description: '', required_qty_kg: '', yarn_type: '', thread_count: '' });
+const blankItem = () => ({ key: Math.random().toString(36).slice(2), mat_code: '', description: '', required_qty_kg: '', yarn_type: '', thread_count: '', last_po_price: '', last_po_date: '', last_supplier_id: '' });
 
 export default function RequirementForm() {
   const { id } = useParams();
@@ -25,8 +25,11 @@ export default function RequirementForm() {
 
   const [form, setForm] = useState({ title: '', category: 'yarn', priority: 'normal', needed_by: '', remarks: '' });
   const [items, setItems] = useState([blankItem()]);
+  const [vendors, setVendors] = useState([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(editing);
+
+  useEffect(() => { if (isProc) api.get('/vendors').then((r) => setVendors(r.data.vendors)).catch(() => {}); }, [isProc]);
 
   useEffect(() => {
     if (!editing) return;
@@ -39,6 +42,7 @@ export default function RequirementForm() {
       setItems(items.map((it) => ({
         key: String(it.id), mat_code: it.mat_code || '', description: it.description || '',
         required_qty_kg: it.required_qty_kg, yarn_type: it.yarn_type || '', thread_count: it.thread_count || '',
+        last_po_price: it.last_po_price ?? '', last_po_date: it.last_po_date || '', last_supplier_id: it.last_supplier_id ?? '',
       })));
     }).finally(() => setLoading(false));
   }, [id, editing]);
@@ -65,6 +69,9 @@ export default function RequirementForm() {
         required_qty_kg: Number(it.required_qty_kg),
         yarn_type: it.yarn_type || null,                          // material type (yarn or fabric)
         thread_count: isYarn ? null : (it.thread_count || null),  // TC (fabric only)
+        last_po_price: it.last_po_price === '' || it.last_po_price == null ? null : Number(it.last_po_price),
+        last_po_date: it.last_po_date || null,
+        last_supplier_id: it.last_supplier_id === '' || it.last_supplier_id == null ? null : Number(it.last_supplier_id),
       })),
     };
     setBusy(true);
@@ -157,6 +164,29 @@ export default function RequirementForm() {
               </div>
               {items.length > 1 && <button type="button" onClick={() => setItems((a) => a.filter((x) => x.key !== it.key))} className="mt-6 text-slate-300 hover:text-clay-500 text-lg shrink-0" title="Remove">×</button>}
             </div>
+            {isProc && (
+              <div className="mt-3 pt-3 border-t border-line">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Last purchase reference (optional)</div>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="label">Last PO price / {cat.unit} (ex-GST)</label>
+                    <input className="input tnum" type="number" min="0" step="any" value={it.last_po_price}
+                      onChange={(e) => setItem(it.key, { last_po_price: e.target.value })} placeholder="₹" />
+                  </div>
+                  <div>
+                    <label className="label">Last PO date</label>
+                    <input className="input" type="date" value={it.last_po_date} onChange={(e) => setItem(it.key, { last_po_date: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Last supplier</label>
+                    <select className="input" value={it.last_supplier_id} onChange={(e) => setItem(it.key, { last_supplier_id: e.target.value })}>
+                      <option value="">— select vendor —</option>
+                      {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
