@@ -81,18 +81,19 @@ export async function buildComparison(requirementId, weights = DEFAULT_WEIGHTS) 
         quote_line_id: line ? line.id : null,
         price_per_kg: line ? line.price_per_kg : null,
         gst_pct: line ? line.gst_pct : null,
-        landed_price: quoted ? landedPrice(line) : null,
+        landed_price: quoted ? landedPrice(line) : null, // base + GST (reference only)
         currency: line ? line.currency : null,
         lead_time_days: line ? line.lead_time_days : null,
         payment_terms: line ? line.payment_terms : null,
         payment_days: line ? parsePaymentDays(line.payment_terms) : null,
         remarks: line ? line.remarks : null,
-        line_total: quoted ? landedPrice(line) * item.required_qty_kg : null,
+        line_total: quoted ? Number(line.price_per_kg) * item.required_qty_kg : null,   // basic value (ex-GST)
+        landed_total: quoted ? landedPrice(line) * item.required_qty_kg : null,
       };
     });
 
     const quotedCells = cells.filter((c) => c.quoted);
-    const prices = quotedCells.map((c) => c.landed_price).filter((x) => x != null);
+    const prices = quotedCells.map((c) => c.price_per_kg).filter((x) => x != null);
     const leads = quotedCells.map((c) => c.lead_time_days).filter((x) => x != null);
     const pays = quotedCells.map((c) => c.payment_days).filter((x) => x != null);
     const minPrice = prices.length ? Math.min(...prices) : null;
@@ -102,7 +103,7 @@ export async function buildComparison(requirementId, weights = DEFAULT_WEIGHTS) 
     const wSum = (weights.price || 0) + (weights.lead_time || 0) + (weights.payment || 0) + (weights.rating || 0);
 
     for (const c of quotedCells) {
-      const sPrice = minPrice != null && c.landed_price ? (minPrice / c.landed_price) * 100 : 0;
+      const sPrice = minPrice != null && c.price_per_kg ? (minPrice / c.price_per_kg) * 100 : 0;
       const sLead = minLead != null && c.lead_time_days ? (minLead / c.lead_time_days) * 100 : (c.lead_time_days == null ? 60 : 0);
       const sPay = maxPay && c.payment_days != null ? (c.payment_days / maxPay) * 100 : (c.payment_days == null ? 50 : 0);
       const sRating = Math.min(100, (Number(c.rating || 0) / 5) * 100 + Math.min(c.active_certs * 3, 10));
@@ -115,19 +116,19 @@ export async function buildComparison(requirementId, weights = DEFAULT_WEIGHTS) 
             sPay * (weights.payment || 0) + sRating * (weights.rating || 0)) / wSum)
         : 0;
 
-      if (item.last_po_price != null && c.landed_price != null) {
-        c.savings_per_kg = round2(item.last_po_price - c.landed_price);
-        c.savings_pct = round1(((item.last_po_price - c.landed_price) / item.last_po_price) * 100);
-        c.savings_total = round2((item.last_po_price - c.landed_price) * item.required_qty_kg);
+      if (item.last_po_price != null && c.price_per_kg != null) {
+        c.savings_per_kg = round2(item.last_po_price - c.price_per_kg);
+        c.savings_pct = round1(((item.last_po_price - c.price_per_kg) / item.last_po_price) * 100);
+        c.savings_total = round2((item.last_po_price - c.price_per_kg) * item.required_qty_kg);
       }
     }
 
     let recommended = null;
     if (quotedCells.length) {
-      recommended = [...quotedCells].sort((a, b) => b.total_score - a.total_score || a.landed_price - b.landed_price)[0];
+      recommended = [...quotedCells].sort((a, b) => b.total_score - a.total_score || a.price_per_kg - b.price_per_kg)[0];
     }
     const cheapest = quotedCells.length
-      ? [...quotedCells].sort((a, b) => a.landed_price - b.landed_price)[0] : null;
+      ? [...quotedCells].sort((a, b) => a.price_per_kg - b.price_per_kg)[0] : null;
 
     return {
       item: {

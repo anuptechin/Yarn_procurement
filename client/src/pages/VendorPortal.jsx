@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { Spinner } from '../components/ui.jsx';
-import { kg, date } from '../lib/format.js';
+import { num, date } from '../lib/format.js';
+
+const CAT_UNIT = { yarn: 'Kg', bedding_fabric: 'Mtr', lining_fabric: 'Mtr' };
 
 export default function VendorPortal() {
   const { token } = useParams();
@@ -62,6 +64,7 @@ export default function VendorPortal() {
   );
 
   const r = state.rfq;
+  const unit = CAT_UNIT[r.category] || 'Kg';
   return (
     <Shell>
       <div className="max-w-3xl mx-auto">
@@ -88,14 +91,14 @@ export default function VendorPortal() {
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div><div className="font-mono text-xs text-indigo-600">{l.mat_code}</div>
                   <div className="font-medium text-ink">{l.description}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">Required: {kg(l.required_qty_kg)}</div></div>
+                  <div className="text-xs text-slate-400 mt-0.5">Required: {num(l.required_qty_kg)} {unit}</div></div>
                 <label className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
                   <input type="checkbox" className="accent-clay-500" checked={l.no_quote} onChange={(e) => setLine(i, { no_quote: e.target.checked })} /> Can't supply
                 </label>
               </div>
               {!l.no_quote && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div><label className="label">Price / Kg (₹)</label><input className="input tnum" type="number" step="any" value={l.price_per_kg} onChange={(e) => setLine(i, { price_per_kg: e.target.value })} placeholder="0.00" /></div>
+                  <div><label className="label">Price / {unit} (₹)</label><input className="input tnum" type="number" step="any" value={l.price_per_kg} onChange={(e) => setLine(i, { price_per_kg: e.target.value })} placeholder="0.00" /></div>
                   <div><label className="label">GST %</label><input className="input tnum" type="number" step="any" value={l.gst_pct} onChange={(e) => setLine(i, { gst_pct: e.target.value })} /></div>
                   <div><label className="label">Lead time (days)</label><input className="input tnum" type="number" value={l.lead_time_days} onChange={(e) => setLine(i, { lead_time_days: e.target.value })} /></div>
                   <div><label className="label">Payment terms</label><input className="input" value={l.payment_terms} onChange={(e) => setLine(i, { payment_terms: e.target.value })} placeholder="30 Days" /></div>

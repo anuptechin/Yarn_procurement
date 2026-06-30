@@ -58,7 +58,8 @@ router.post('/requirement/:reqId/award', requireRole(ROLES.DEPTHEAD), async (req
         const rfq = await cx.get('SELECT id FROM rfqs WHERE requirement_id=? AND vendor_id=?', [r.id, a.vendor_id]);
         const quote = rfq ? await cx.get('SELECT id FROM quotes WHERE rfq_id=?', [rfq.id]) : null;
         const line = quote ? await cx.get('SELECT * FROM quote_lines WHERE quote_id=? AND requirement_item_id=?', [quote.id, item.id]) : null;
-        const landed = line && line.price_per_kg != null ? line.price_per_kg * (1 + (line.gst_pct || 0) / 100) : null;
+        // Award & last-PO are tracked on the basic price (ex-GST); GST stays separate.
+        const basePrice = line && line.price_per_kg != null ? Number(line.price_per_kg) : null;
 
         await cx.run(`
           INSERT INTO awards (requirement_id, requirement_item_id, vendor_id, quote_line_id, awarded_price, decided_by, justification)
@@ -67,12 +68,12 @@ router.post('/requirement/:reqId/award', requireRole(ROLES.DEPTHEAD), async (req
             vendor_id=excluded.vendor_id, quote_line_id=excluded.quote_line_id,
             awarded_price=excluded.awarded_price, decided_by=excluded.decided_by,
             decided_at=now(), justification=excluded.justification`,
-          [r.id, item.id, a.vendor_id, line ? line.id : null, landed, req.user.id, a.justification || null]);
+          [r.id, item.id, a.vendor_id, line ? line.id : null, basePrice, req.user.id, a.justification || null]);
 
-        // record awarded price as new "last PO" reference for the material
-        if (item.material_id && landed != null) {
+        // record awarded basic price as new "last PO" reference for the material
+        if (item.material_id && basePrice != null) {
           await cx.run(`INSERT INTO price_history (material_id, price_date, price_per_kg, source, vendor_id) VALUES (?, ?, ?, 'po', ?)`,
-            [item.material_id, isoDate(), landed, a.vendor_id]);
+            [item.material_id, isoDate(), basePrice, a.vendor_id]);
         }
       }
       await cx.run(`UPDATE requirements SET status='awarded', updated_at=now() WHERE id=?`, [r.id]);

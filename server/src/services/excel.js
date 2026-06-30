@@ -17,24 +17,27 @@ export async function streamComparisonXlsx(res, comparison) {
   });
 
   const { requirement, vendors, items } = comparison;
+  const CAT = { yarn: { label: 'Yarn', unit: 'Kg' }, bedding_fabric: { label: 'Bedding Fabric', unit: 'Mtr' }, lining_fabric: { label: 'Lining Fabric', unit: 'Mtr' } };
+  const cat = CAT[requirement.category] || CAT.yarn;
+  const unit = cat.unit;
 
   // Title
   ws.mergeCells(1, 1, 1, 4 + vendors.length * 3);
   const title = ws.getCell(1, 1);
-  title.value = `Yarn Price Comparison  —  ${requirement.ref_no}  —  ${requirement.title}`;
+  title.value = `${cat.label} Price Comparison  —  ${requirement.ref_no}  —  ${requirement.title}`;
   title.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
   title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND } };
   title.alignment = { vertical: 'middle', horizontal: 'left' };
   ws.getRow(1).height = 26;
 
   // Header rows: base columns + per-vendor group
-  const baseCols = ['Mat Code', 'Description', 'Req Qty (Kg)', 'Last PO Price/Kg'];
+  const baseCols = ['SAP Code', 'Description', `Req Qty (${unit})`, `Last PO/${unit} (ex-GST)`];
   const headerRow1 = ['', '', '', ''];
   const headerRow2 = [...baseCols];
 
   vendors.forEach((v) => {
     headerRow1.push(`${v.vendor_name}  (★${v.rating})`, '', '');
-    headerRow2.push('Price/Kg', 'Lead/Pay', 'Score');
+    headerRow2.push(`Basic/${unit}`, 'GST · Lead · Pay', 'Score');
   });
 
   const r2 = ws.addRow([]); // spacer to align (row 2 empty)
@@ -67,8 +70,8 @@ export async function streamComparisonXlsx(res, comparison) {
         data.push('No quote', '', '');
       } else {
         data.push(
-          round2(c.landed_price),
-          `${c.lead_time_days ?? '?'}d / ${c.payment_terms ?? '?'}`,
+          round2(c.price_per_kg),
+          `${c.gst_pct ? c.gst_pct + '% · ' : ''}${c.lead_time_days ?? '?'}d / ${c.payment_terms ?? '?'}`,
           c.total_score ?? ''
         );
       }

@@ -184,7 +184,7 @@ export default function RequirementDetail() {
 
       {modal?.type === 'dispatch' && <DispatchModal reqId={id} existing={rfqs} onClose={() => setModal(null)} onDone={() => { setModal(null); load(); }} />}
       {modal?.type === 'email' && <EmailModal rfq={modal.rfq} onClose={() => setModal(null)} />}
-      {modal?.type === 'quote' && <QuoteModal rfq={modal.rfq} items={items} onClose={() => setModal(null)} onDone={() => { setModal(null); load(); }} />}
+      {modal?.type === 'quote' && <QuoteModal rfq={modal.rfq} items={items} unit={cat.unit} onClose={() => setModal(null)} onDone={() => { setModal(null); load(); }} />}
     </>
   );
 }
@@ -287,7 +287,7 @@ function EmailModal({ rfq, onClose }) {
 }
 
 // ---- Manual quote entry modal --------------------------------------------
-function QuoteModal({ rfq, items, onClose, onDone }) {
+function QuoteModal({ rfq, items, unit = 'Kg', onClose, onDone }) {
   const toast = useToast();
   const [lines, setLines] = useState(null);
   const [meta, setMeta] = useState({ submitted_by: '', valid_until: '', notes: '' });
@@ -330,7 +330,7 @@ function QuoteModal({ rfq, items, onClose, onDone }) {
           <div className="overflow-x-auto scroll-thin">
             <table className="w-full min-w-[760px] text-sm">
               <thead><tr className="border-b border-line">
-                <th className="th">Item</th><th className="th text-right">Price/Kg</th><th className="th text-right">GST %</th>
+                <th className="th">Item</th><th className="th text-right">Price/{unit}</th><th className="th text-right">GST %</th>
                 <th className="th text-right">Lead (d)</th><th className="th">Payment</th><th className="th">Remarks</th><th className="th text-center">No quote</th>
               </tr></thead>
               <tbody className="divide-y divide-line">

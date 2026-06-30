@@ -8,7 +8,7 @@ const router = Router();
 
 async function loadByToken(token) {
   return db.get(`
-    SELECT rfq.*, r.ref_no, r.title, r.needed_by, v.name AS vendor_name, v.contact_person, v.default_payment_terms, v.default_lead_time
+    SELECT rfq.*, r.ref_no, r.title, r.needed_by, r.category, v.name AS vendor_name, v.contact_person, v.default_payment_terms, v.default_lead_time
     FROM rfqs rfq
     JOIN requirements r ON r.id = rfq.requirement_id
     JOIN vendors v ON v.id = rfq.vendor_id
@@ -30,7 +30,7 @@ router.get('/:token', async (req, res, next) => {
 
     res.json({
       rfq: {
-        ref_no: rfq.ref_no, title: rfq.title, needed_by: rfq.needed_by, due_date: rfq.due_date,
+        ref_no: rfq.ref_no, title: rfq.title, needed_by: rfq.needed_by, due_date: rfq.due_date, category: rfq.category,
         status: rfq.status, vendor_name: rfq.vendor_name, contact_person: rfq.contact_person,
         default_payment_terms: rfq.default_payment_terms, default_lead_time: rfq.default_lead_time,
       },

@@ -11,6 +11,7 @@ const WEIGHT_KEYS = [
   { key: 'payment', label: 'Payment' },
   { key: 'rating', label: 'Rating' },
 ];
+const CAT_UNIT = { yarn: 'Kg', bedding_fabric: 'Mtr', lining_fabric: 'Mtr' };
 
 export default function Comparison() {
   const { id } = useParams();
@@ -42,6 +43,7 @@ export default function Comparison() {
   if (!data) return <Loading label="Building comparison…" />;
 
   const { requirement: r, vendors, items, summary } = data;
+  const unit = CAT_UNIT[r.category] || 'Kg';
   const isHead = can.award(user.role);
   const alreadyAwarded = r.status === 'awarded';
 
@@ -91,7 +93,7 @@ export default function Comparison() {
           )}
 
           {items.map((row) => (
-            <ItemComparison key={row.item.id} row={row} vendors={vendors} isHead={isHead && !alreadyAwarded}
+            <ItemComparison key={row.item.id} row={row} vendors={vendors} unit={unit} isHead={isHead && !alreadyAwarded}
               pick={picks[row.item.id]} onPick={(vid) => setPicks((p) => ({ ...p, [row.item.id]: vid }))}
               reason={reasons[row.item.id] || ''} onReason={(t) => setReasons((p) => ({ ...p, [row.item.id]: t }))} />
           ))}
@@ -111,7 +113,7 @@ export default function Comparison() {
   );
 }
 
-function ItemComparison({ row, vendors, isHead, pick, onPick, reason, onReason }) {
+function ItemComparison({ row, vendors, unit, isHead, pick, onPick, reason, onReason }) {
   const { item, cells, recommended_vendor_id, cheapest_vendor_id, award } = row;
   const cellByVendor = useMemo(() => Object.fromEntries(cells.map((c) => [c.vendor_id, c])), [cells]);
 
@@ -124,8 +126,8 @@ function ItemComparison({ row, vendors, isHead, pick, onPick, reason, onReason }
           <div className="font-display font-semibold text-ink">{item.description}</div>
         </div>
         <div className="flex items-center gap-5 text-sm">
-          <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Req Qty</div><div className="tnum font-semibold">{kg(item.required_qty_kg)}</div></div>
-          <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Last PO</div><div className="tnum font-semibold">{item.last_po_price ? inr(item.last_po_price) : '—'}</div>
+          <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Req Qty</div><div className="tnum font-semibold">{num(item.required_qty_kg)} {unit}</div></div>
+          <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Last PO (ex-GST)</div><div className="tnum font-semibold">{item.last_po_price ? inr(item.last_po_price) : '—'}</div>
             {item.last_po_date && <div className="text-[10px] text-slate-400">{date(item.last_po_date)}</div>}</div>
         </div>
       </div>
@@ -174,15 +176,16 @@ function ItemComparison({ row, vendors, isHead, pick, onPick, reason, onReason }
 
               <div className="mt-3 flex items-end justify-between">
                 <div>
-                  <div className="font-mono text-2xl font-semibold text-ink tnum">{inr(c.landed_price)}</div>
-                  <div className="text-[11px] text-slate-400">landed / Kg{c.gst_pct ? ` · incl ${num(c.gst_pct)}% GST` : ''}</div>
+                  <div className="font-mono text-2xl font-semibold text-ink tnum">{inr(c.price_per_kg)}</div>
+                  <div className="text-[11px] text-slate-400">basic price / {unit}{c.gst_pct ? ` · + ${num(c.gst_pct)}% GST` : ''}</div>
+                  {c.gst_pct ? <div className="text-[11px] text-slate-400">incl. GST {inr(c.landed_price)}/{unit}</div> : null}
                 </div>
                 {cheapest && <Badge tone="indigo">Lowest</Badge>}
               </div>
 
               {c.savings_per_kg != null && (
                 <div className={`mt-2 text-xs font-semibold ${c.savings_per_kg >= 0 ? 'text-sage-700' : 'text-clay-600'}`}>
-                  {c.savings_per_kg >= 0 ? '▼' : '▲'} {inr(Math.abs(c.savings_per_kg))}/Kg vs last PO
+                  {c.savings_per_kg >= 0 ? '▼' : '▲'} {inr(Math.abs(c.savings_per_kg))}/{unit} vs last PO
                   <span className="text-slate-400 font-normal"> · {c.savings_total >= 0 ? 'save' : 'extra'} {inr(Math.abs(c.savings_total), { dp: 0 })}</span>
                 </div>
               )}
@@ -190,8 +193,8 @@ function ItemComparison({ row, vendors, isHead, pick, onPick, reason, onReason }
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-3 text-xs">
                 <Spec label="Lead time" value={c.lead_time_days != null ? `${c.lead_time_days} days` : '—'} />
                 <Spec label="Payment" value={c.payment_terms || '—'} />
-                <Spec label="Line value" value={inr(c.line_total, { dp: 0 })} />
-                <Spec label="Ext. GST" value={c.gst_pct ? `${num(c.gst_pct)}%` : '—'} />
+                <Spec label="Basic value" value={inr(c.line_total, { dp: 0 })} />
+                <Spec label="GST" value={c.gst_pct ? `${num(c.gst_pct)}%` : '—'} />
               </div>
 
               <div className="mt-3 pt-3 border-t border-line">
